@@ -62,6 +62,9 @@ int segmenting(
   for(int i = 0; i < 2*n; i++){
     L(i) = 1e-5 * floor(L(i)*1e5);
   }
+  
+  // Check that the telescopic configuration of the tubes is correct
+  // i.e. beta_1 < beta_2 < beta_3 < 0 < tip_3 < tip_2 < tip_1 (for a 3-tube CTR)
   for (int i = 0; i < n-1; i++){
     if (B(i)>B(i+1)){
       std::cout << "proximal end of tube " << i+1 << " is clashing into tube " << i+2 << std::endl;
@@ -76,6 +79,19 @@ int segmenting(
       return -1;
     }
   }
+  if(B(n-1) > 0){
+      std::cout << "proximal end of tube " << n-1 << " is outside the actuation unit" << std::endl;
+      std::cout << "B = " << std::endl << B << std::endl;
+      std::cout << "q = " << std::endl << q << std::endl;
+      return -1;
+  }
+  if(d1(n-1) < 0){
+      std::cout << "distal end of tube " << n-1 << " is inside the actuation unit" << std::endl;
+      std::cout << "d1 = " << std::endl << d1 << std::endl;
+      std::cout << "q = " << std::endl << q << std::endl;
+      return -1;
+  }
+
   int i0;
   Vector<int,n> iCurved;
   segmented_out.iEnd = Vector<int,n>::Zero();
