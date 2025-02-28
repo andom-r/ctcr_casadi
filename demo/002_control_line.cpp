@@ -27,7 +27,8 @@ int main(int, char**){
   Vector<double,NB_Q> q;
   q << -0.3, -0.2, -0.1, 0.0, 0.0, 0.0; // arbitrary initial configuration
   // Compute model and robot Jacobian matrix
-  ctr.Compute<LOAD_J>(q);
+  constexpr computationOptions opt_LOAD_J = { .isExternalLoads = true, .isComputeJacobian = true, .isComputeCompliance = false, .nbThreads = 1};
+  ctr.Compute(q, opt_LOAD_J);
 
   // Get end-effector position
   Vector<double,3> X = ctr.GetX();
@@ -71,7 +72,7 @@ int main(int, char**){
 
     // Simulation
     q += qp_d * dt;
-    ctr.Compute<LOAD_J>(q);
+    ctr.Compute(q, opt_LOAD_J);
     X = ctr.GetX();
     logTraj(i,all) = X;
     plotCtr(ctr.GetYTot(), ctr.segmented.iEnd, logTraj(seq(0,i),all));

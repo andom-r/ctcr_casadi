@@ -10,8 +10,8 @@ public:
     CtrModel(parameters p);
     virtual ~CtrModel();
 
-    template <COMPUTATION_OPTION opt> 
-    int Compute(Eigen::Vector<double,CTR_CONST::NB_Q> q); // Compute end-effector position
+    //template <COMPUTATION_OPTION opt> 
+    int Compute(Eigen::Vector<double,CTR_CONST::NB_Q> q, computationOptions); // Compute end-effector position
 
     const Eigen::Vector<double, 2 * CTR_CONST::n> GetOffset(){return offset;};
     const Eigen::Vector<double,CTR_CONST::n> GetUx(){return Ux;};
@@ -19,12 +19,15 @@ public:
     const Eigen::Vector<double,CTR_CONST::n> GetL_k(){return l_k;};
     const Eigen::Vector<double,CTR_CONST::n> GetKxy(){return Kxy;};
     const Eigen::Vector<double,CTR_CONST::n> GetKz(){return Kz;};
-    void SetW(const CTR_CONST::Vector_w &_w){w = _w;};
     const CTR_CONST::Vector_w GetW(){return w;};
     const Eigen::Matrix<double,CTR_CONST::nStateVar,CTR_CONST::nSegMax*CTR_CONST::nIntPoints> GetYTot(){return yTot;}
     const Eigen::Vector<double,CTR_CONST::NB_YU0> GetYu0(){return yu0;};
     const Eigen::Vector3d GetX(){return X;};
-    const Eigen::Matrix<double,6,CTR_CONST::NB_Q> GetJ(){return J;};
+    const Eigen::Matrix3d GetR(){return R;};
+    const Eigen::Matrix<double,CTR_CONST::NB_X,CTR_CONST::NB_Q> GetJ(){return J;};
+    const Eigen::Matrix<double,CTR_CONST::NB_X,CTR_CONST::NB_W> GetC(){return C;};
+
+    void setW(CTR_CONST::Vector_w _w){w = _w;};
 
     segmentedData segmented;
 
@@ -43,7 +46,8 @@ protected:
     Eigen::Vector3d X;                             // Position of the end-effector
     Eigen::Matrix3d R;                             // Orientation of the end-effector as a rotation matrix
 
-    Eigen::Matrix<double,6,CTR_CONST::NB_Q> J;    // Robot Jacobian
+    Eigen::Matrix<double,CTR_CONST::NB_X,CTR_CONST::NB_Q> J;    // Robot Jacobian
+    Eigen::Matrix<double,CTR_CONST::NB_X,CTR_CONST::NB_W> C;    // Robot Compliance
 
     Eigen::Vector<double, 2 * CTR_CONST::n> offset; // Translational and rotational offsets (between the "actuator zero position" and the "zero position" defined in the model) [m ; m; m; rad; rad; rad]
 private:

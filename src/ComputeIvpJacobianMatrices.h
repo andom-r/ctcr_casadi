@@ -25,6 +25,27 @@
  * @param[out] Bu_out Output jacobian matrix Bu (delta_b/delta_yu0)
  * @return int (0 indicates success and < 0 indicates failure )
  */
+
+  int ComputeIvpJacobianMatrices( 
+  const Eigen::Vector<double,CTR_CONST::NB_Q> &q,
+  const Eigen::Vector<double,CTR_CONST::NB_YU0> &yu0,
+  const Eigen::Vector<double,CTR_CONST::n> &Kxy,
+  const Eigen::Vector<double,CTR_CONST::n> &Kz,
+  const Eigen::Vector<double,CTR_CONST::n> &Ux,
+  const Eigen::Vector<double,CTR_CONST::n> &l,
+  const Eigen::Vector<double,CTR_CONST::n> &l_k,
+  const CTR_CONST::Vector_w &w,
+
+  Eigen::Matrix<double,CTR_CONST::nStateVar,CTR_CONST::nSegMax*CTR_CONST::nIntPoints> &yTot_out,
+  Eigen::Vector<double,CTR_CONST::NB_BC> &b_out,
+  Eigen::Matrix<double,6,CTR_CONST::NB_Q> &Eq_out,
+  Eigen::Matrix<double,6,CTR_CONST::NB_YU0> &Eu_out,
+  Eigen::Matrix<double,6,CTR_CONST::NB_W> &Ew_out,
+  Eigen::Matrix<double,CTR_CONST::NB_BC,CTR_CONST::NB_Q> &Bq_out,
+  Eigen::Matrix<double,CTR_CONST::NB_BC,CTR_CONST::NB_YU0> &Bu_out,
+  Eigen::Matrix<double,CTR_CONST::NB_BC,CTR_CONST::NB_W> &Bw_out,
+  computationOptions opt);
+
   template <COMPUTATION_OPTION opt> 
   int ComputeIvpJacobianMatrices( 
     const Eigen::Vector<double,CTR_CONST::NB_Q> &q,
@@ -40,7 +61,9 @@
     Eigen::Vector<double,CTR_CONST::NB_BC> &b_out,
     Eigen::Matrix<double,6,CTR_CONST::NB_Q> &Eq_out,
     Eigen::Matrix<double,6,CTR_CONST::NB_YU0> &Eu_out,
+    Eigen::Matrix<double,6,CTR_CONST::NB_W> &Ew_out,
     Eigen::Matrix<double,CTR_CONST::NB_BC,CTR_CONST::NB_Q> &Bq_out,
     Eigen::Matrix<double,CTR_CONST::NB_BC,CTR_CONST::NB_YU0> &Bu_out,
+    Eigen::Matrix<double,CTR_CONST::NB_BC,CTR_CONST::NB_W> &Bw_out,
     uint nThread);
 #endif //IVP_FD_H

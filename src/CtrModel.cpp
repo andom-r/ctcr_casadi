@@ -6,7 +6,6 @@
 
 #include "segmenting.h"
 #include "solveIVP.h"
-#include "bcError.h"
 
 #include <chrono>
 #include <omp.h>
@@ -19,7 +18,7 @@ using namespace Eigen;
 constexpr int nIterationsMax = 1000;
 constexpr double maxNormB = 1e-10;
 
-int nThread = omp_get_max_threads();
+int nThreadMax = omp_get_max_threads();
 
 CtrModel::CtrModel(parameters p){
 
@@ -41,17 +40,28 @@ CtrModel::CtrModel(parameters p){
     constexpr double margin = 5e-3; 
     q = offset + Vector<double, 2 * n>(-3.0 * margin, -2.0 * margin, -margin, 0.0, 0.0, 0.0);
 
-    w << p.force, p.moment; // external point force applied at the end-effector
+    w << p.force , p.moment;  // external wrench applied at the end-effector
     yu0 = Vector<double, NB_YU0>::Zero();
 
-    Compute<LOAD_J>(q); // Compute the model for the initial configuration to initialize yu0, X, and J.
+    constexpr computationOptions opt = { .isExternalLoads = true, .isComputeJacobian = true, .isComputeCompliance = true, .nbThreads = 1};
+    Compute(q, opt); // Compute the model for the initial configuration to initialize yu0, X, J and C.
 }
 
 CtrModel::~CtrModel(){
   //dtor
 }
-template <COMPUTATION_OPTION opt> 
-int CtrModel::Compute(Vector<double,NB_Q> argQ){
+//template <COMPUTATION_OPTION opt> 
+int CtrModel::Compute(Vector<double,NB_Q> argQ, computationOptions opt){
+
+  if(!opt.isExternalLoads){
+    std::cout << "CtrModel::Compute() >> Error ! Unloaded model is not implemented yet" << std::endl;
+    abort();
+  }
+  if(opt.isComputeCompliance && !opt.isExternalLoads){
+    std::cout << "CtrModel::Compute() >> Error ! Computation of the compliance matrix requires to use the loaded model !" << std::endl;
+    abort();
+  }
+
     int nbIteration = 0;
     q = argQ;
     Vector<double,NB_YU0> yu0_tilde = yu0;
@@ -60,13 +70,15 @@ int CtrModel::Compute(Vector<double,NB_Q> argQ){
     Vector<double,NB_BC> b_out;
     Matrix<double,6,CTR_CONST::NB_Q> Eq_out;
     Matrix<double,6,CTR_CONST::NB_YU0> Eu_out;
+    Matrix<double,6,CTR_CONST::NB_W> Ew_out;
     Matrix<double,CTR_CONST::NB_BC,CTR_CONST::NB_Q> Bq_out;
     Matrix<double,CTR_CONST::NB_BC,CTR_CONST::NB_YU0> Bu_out;
+    Matrix<double,CTR_CONST::NB_BC,CTR_CONST::NB_W> Bw_out;
 
     int nIter = 0;
     
     // first iteration without J and/or C, just to compute the BC residuals and the Bu matrix
-    if(ComputeIvpJacobianMatrices<LOAD>(q,yu0_tilde,Kxy,Kz,Ux,l,l_k,w,yTot_out,b_out,Eq_out,Eu_out,Bq_out,Bu_out, nThread) != 0){
+    if(ComputeIvpJacobianMatrices(q,yu0_tilde,Kxy,Kz,Ux,l,l_k,w,yTot_out,b_out,Eq_out,Eu_out,Ew_out,Bq_out,Bu_out,Bw_out, opt) != 0){
       std::cout << "CtrModel::Compute()>> ComputeIvpJacobianMatrices() returned non-zero !" << std::endl;
       return -1;
     }
@@ -74,7 +86,7 @@ int CtrModel::Compute(Vector<double,NB_Q> argQ){
     nIter++;
     nbIteration++;
     do{ // first pass with yu0 from previous computation
-      if(ComputeIvpJacobianMatrices<opt>(q,yu0_tilde,Kxy,Kz,Ux,l,l_k,w,yTot_out,b_out,Eq_out,Eu_out,Bq_out,Bu_out, nThread) != 0){
+      if(ComputeIvpJacobianMatrices(q,yu0_tilde,Kxy,Kz,Ux,l,l_k,w,yTot_out,b_out,Eq_out,Eu_out,Ew_out,Bq_out,Bu_out,Bw_out, opt) != 0){
         std::cout << "CtrModel::Compute()>> ComputeIvpJacobianMatrices() returned non-zero !" << std::endl;
         return -1;
       }
@@ -93,7 +105,7 @@ int CtrModel::Compute(Vector<double,NB_Q> argQ){
       yu0_tilde(4) = -yu0(4);
       nIter = 0;
       do{ //second pass, with opposite torsion
-        if(ComputeIvpJacobianMatrices<opt>(q,yu0_tilde,Kxy,Kz,Ux,l,l_k,w,yTot_out,b_out,Eq_out,Eu_out,Bq_out,Bu_out, nThread) != 0){
+        if(ComputeIvpJacobianMatrices(q,yu0_tilde,Kxy,Kz,Ux,l,l_k,w,yTot_out,b_out,Eq_out,Eu_out,Ew_out,Bq_out,Bu_out,Bw_out, opt) != 0){
           std::cout << "CtrModel::Compute()>> ComputeIvpJacobianMatrices() returned non-zero !" << std::endl;
           return -1;
         }
@@ -122,16 +134,18 @@ int CtrModel::Compute(Vector<double,NB_Q> argQ){
     X = getXFromYtot(yTot_out,segmented_out);
     R = getRvFromYtot(yTot_out,segmented_out).reshaped(3,3);
 
-    if(opt == LOAD_J){
-      Matrix<double,6,6> RR = Matrix<double,6,6>::Zero();
-      RR(seq(0,2),seq(0,2)) = R;
-      RR(seq(3,5),seq(3,5)) = R;
-
+    Matrix<double,6,6> RR = Matrix<double,6,6>::Zero();
+    RR(seq(0,2),seq(0,2)) = R;
+    RR(seq(3,5),seq(3,5)) = R;
+    if(opt.isComputeJacobian){
       J = RR * (Eq_out - Eu_out * pinv(Bu_out) * Bq_out); 
+    }
+    if(opt.isComputeCompliance){
+      C = RR * (Ew_out - Eu_out * pinv(Bu_out) * Bw_out);
     }
 
   return nbIteration;
 }
 
-template int CtrModel::Compute<LOAD>(Vector<double,NB_Q> argQ);
-template int CtrModel::Compute<LOAD_J>(Vector<double,NB_Q> argQ);
+//template int CtrModel::Compute<LOAD>(Vector<double,NB_Q> argQ);
+//template int CtrModel::Compute<LOAD_J>(Vector<double,NB_Q> argQ);

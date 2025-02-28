@@ -1,6 +1,8 @@
 #ifndef CTR_CONSTANTS_H
 #define CTR_CONSTANTS_H
 
+#include "Eigen/Dense"
+
 namespace CTR_CONST{
     constexpr int n = 3;                        // number of tubes
     constexpr int nIntPoints = 2;               // number of integration nodes per segment
@@ -12,6 +14,7 @@ namespace CTR_CONST{
     constexpr int NB_BC = n + 2;                // number of variables in boundary condition residuals 
 
     constexpr int NB_W = 6;
+    constexpr int NB_X = 6;
 
     constexpr double pi = 3.1415926535897932384626433832795028841971L;
 
@@ -33,7 +36,18 @@ struct segmentedData{
 // LOAD_J : Compute the model along with the robot Jacobian matrix J, with external loads
 // LOAD_J_C : Compute the model along with the robot Jacobian matrix J and compliance matrix C, with external loads
 //enum COMPUTATION_OPTION {NO_LOAD, NO_LOAD_J, LOAD, LOAD_J, LOAD_J_C};
-enum COMPUTATION_OPTION {LOAD, LOAD_J};
+enum COMPUTATION_OPTION {LOAD, LOAD_J, LOAD_J_C};
+
+//enum OPTION_LOAD {NO_LOAD, LOAD};
+//enum OPTION_LOAD {LOAD};
+//enum OPTION_JACOBIAN {NO_J, J};
+//enum OPTION_COMPLIANCE {NO_C, C};
+struct computationOptions{
+    bool isExternalLoads;       // true for loaded model, false for unloaded model (WARNING ! Unloaded model is not impleted for the moment)
+    bool isComputeJacobian;     // true to compute the robot jacobian matric 
+    bool isComputeCompliance;   // true to compute the compliance matric 
+    int  nbThreads;             // number of threads to use for parallel computing (simply use 1 for single-thread computation)
+    };
 // Warning ! This is a temporary version of the code. Computation options NO_LOAD, NO_LOAD_J, and LOAD_J_C will be implemented shortly.
 
 // Convert index of segment (in SegmentedData) to column index in yTot matrix
