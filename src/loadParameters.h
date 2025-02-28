@@ -32,6 +32,7 @@ struct parameters{
     double trajAccMax;                    // Maximal acceleration for trapezoidal velocity generation [m/s^2]
 
     Eigen::Vector3d force;                // External point force applied at the end-effector [N]
+    Eigen::Vector3d moment;               // External point moment applied at the end-effector [Nm]
     double noiseStd;                      // Standard deviation of the measurement noise [m]
   };
 void printParameter(parameters &p);

@@ -19,7 +19,8 @@ public:
     const Eigen::Vector<double,CTR_CONST::n> GetL_k(){return l_k;};
     const Eigen::Vector<double,CTR_CONST::n> GetKxy(){return Kxy;};
     const Eigen::Vector<double,CTR_CONST::n> GetKz(){return Kz;};
-    const Eigen::Vector3d GetF(){return f;};
+    void SetW(const CTR_CONST::Vector_w &_w){w = _w;};
+    const CTR_CONST::Vector_w GetW(){return w;};
     const Eigen::Matrix<double,CTR_CONST::nStateVar,CTR_CONST::nSegMax*CTR_CONST::nIntPoints> GetYTot(){return yTot;}
     const Eigen::Vector<double,CTR_CONST::NB_YU0> GetYu0(){return yu0;};
     const Eigen::Vector3d GetX(){return X;};
@@ -35,7 +36,7 @@ protected:
     Eigen::Vector<double,CTR_CONST::n> Kz;         // Torsional stiffnes G*J (Pa.m^4) for each tube
     Eigen::Vector<double,CTR_CONST::NB_Q> q;       // Actuation variables [beta_i, alpha_i] with beta the translations (m) and alpha the rotations (rad) actuation
     Eigen::Vector<double,CTR_CONST::NB_BC> b;      // Boundary condition errors
-    Eigen::Vector3d f;                             // External, punctual force applied on the end-effector
+    CTR_CONST::Vector_w w;                         // External wrench applied on the end-effector
     Eigen::Matrix<double,CTR_CONST::nStateVar,
         CTR_CONST::nSegMax*CTR_CONST::nIntPoints> yTot; // Matrix containing state variables along arc-length (at each integration node, as defined in "ctrConstants.h")
     Eigen::Vector<double,CTR_CONST::NB_YU0> yu0;   // Guess for unknown initial state variables

@@ -187,6 +187,15 @@ int loadParameters (const std::string &path, std::vector<parameters> &vParameter
                             p.force(2) = std::stod(cell);
                             break;
                         case 53:
+                            p.moment(0) = std::stod(cell);
+                            break;
+                        case 54:
+                            p.moment(1) = std::stod(cell);
+                            break;
+                        case 55:
+                            p.moment(2) = std::stod(cell);
+                            break;
+                        case 56:
                             p.noiseStd = std::stod(cell);
                             break;
                     }
@@ -197,7 +206,7 @@ int loadParameters (const std::string &path, std::vector<parameters> &vParameter
                 }
                 iCol++;
             }
-            if(iCol != 54){
+            if(iCol != 57){
                 std::cout << "loadParameters()>> Wrong number of column : " << iCol << " for row " << iRow  << "." << std::endl;
                 return -1;
             }
@@ -261,6 +270,9 @@ std::cout << "p.trajAccMax = " << p.trajAccMax << std::endl;
 std::cout << "p.forceX = " << p.force(0) << std::endl;
 std::cout << "p.forceY = " << p.force(1) << std::endl;
 std::cout << "p.forceZ = " << p.force(2) << std::endl;
+std::cout << "p.momentX = " << p.moment(0) << std::endl;
+std::cout << "p.momentY = " << p.moment(1) << std::endl;
+std::cout << "p.momentZ = " << p.moment(2) << std::endl;
 std::cout << "p.noiseStd = " << p.noiseStd << std::endl;
 std::cout << "(width = " << p.rOut-p.rIn << ")" << std::endl;
 std::cout << std::endl << std::endl;

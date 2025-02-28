@@ -12,7 +12,7 @@
  * @param[in] Kxy Vector of bending stiffness for each tube
  * @param[in] Kz Vector of torsional stiffness for each tube
  * @param[in] Ux Vector of precurvature for each tube
- * @param[in] f External punctual force applied at the end-effector
+ * @param[in] w External wrench force applied at the end-effector
  *
  * @param[out] y_s_out Derivative of the state variables
  */
@@ -23,7 +23,7 @@ void odeCtr(
   const Eigen::Vector<double,CTR_CONST::n>& Kxy,
   const Eigen::Vector<double,CTR_CONST::n>& Kz,
   const Eigen::Vector<double,CTR_CONST::n>& Ux,
-  const Eigen::Vector3d& f,
+  const CTR_CONST::Vector_w& w,
 
   Eigen::Vector<double,CTR_CONST::nStateVar>& y_s_out);
 

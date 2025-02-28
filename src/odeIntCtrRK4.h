@@ -13,7 +13,7 @@
  * @param[in] Kxy Vector of bending stiffness for each tube on the considered segment
  * @param[in] Kz Vector of torsional stiffness for each tube on the considered segment
  * @param[in] Ux Vector of precurvature for each tube on the considered segment
- * @param[in] f external punctual force applied at the end-effector
+ * @param[in] w external wrench applied at the end-effector
  * 
  * @return Matrix containing the values of the state variables for each integration node on the considered segment 
  */
@@ -25,6 +25,6 @@ Eigen::Matrix<double,CTR_CONST::nStateVar,CTR_CONST::nIntPoints> odeIntCtrRK4(
   const Eigen::Vector<double,CTR_CONST::n>& Kxy,
   const Eigen::Vector<double,CTR_CONST::n>& Kz,
   const Eigen::Vector<double,CTR_CONST::n>& Ux,
-  const Eigen::Vector3d& f);
+  const CTR_CONST::Vector_w& w);
 
 #endif //ODE_INT_CTR_RK4_H

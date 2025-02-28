@@ -21,7 +21,7 @@ int ComputeIvpJacobianMatrices(
   const Vector<double,n> &Ux,
   const Vector<double,n> &l,
   const Vector<double,n> &l_k,
-  const Vector3d &f,
+  const Vector_w &w,
 
   Matrix<double,nStateVar,nSegMax*nIntPoints> &yTot_out,
   Vector<double,NB_BC> &b_out,
@@ -83,11 +83,11 @@ int ComputeIvpJacobianMatrices(
         //return -1;
       }
       Matrix<double,nStateVar,nSegMax*nIntPoints> yTot;
-      solveIVP(yu0_i, q_i, segmented_out, f, yTot);
+      solveIVP(yu0_i, q_i, segmented_out, w, yTot);
       if(i == 0){
         yTot_out = yTot;
       }
-      Vector<double,NB_BC> b = bcError(yTot, segmented_out.iEnd, Kxy(0), Ux(0));
+      Vector<double,NB_BC> b = bcError(yTot, segmented_out.iEnd, Kxy(0), Kz(0), Ux(0), w);;
 
       Vector3d X = getXFromYtot(yTot,segmented_out);
       Vector<double,9> Rv = getRvFromYtot(yTot,segmented_out);
@@ -151,7 +151,7 @@ template int ComputeIvpJacobianMatrices<LOAD>(
   const Vector<double,n> &Ux,
   const Vector<double,n> &l,
   const Vector<double,n> &l_k,
-  const Vector3d &f,
+  const Vector_w &w,
 
   Matrix<double,nStateVar,nSegMax*nIntPoints> &yTot_out,
   Vector<double,NB_BC> &b_out,
@@ -169,7 +169,7 @@ template int ComputeIvpJacobianMatrices<LOAD_J>(
   const Vector<double,n> &Ux,
   const Vector<double,n> &l,
   const Vector<double,n> &l_k,
-  const Vector3d &f,
+  const Vector_w &w,
 
   Matrix<double,nStateVar,nSegMax*nIntPoints> &yTot_out,
   Vector<double,NB_BC> &b_out,

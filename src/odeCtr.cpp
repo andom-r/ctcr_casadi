@@ -14,7 +14,7 @@ void odeCtr(
     const Vector<double,n>& Kxy,
     const Vector<double,n>& Kz,
     const Vector<double,n>& Ux,
-    const Vector3d& f,
+    const Vector_w& w,
 
     Vector<double,nStateVar>& y_s_out){
 
@@ -39,6 +39,9 @@ void odeCtr(
     Map<Matrix<double,3,3,RowMajor>> R_s(&y_s_out[3]);
     Map<Vector2d> u1xy_s(&y_s_out[12]);
     Map<Vector3d> uz_s(&y_s_out[14]);
+
+    Vector3d f = w(seqN(0,3));
+    Vector3d l = w(seqN(3,3));
 
     r_s = R.col(2); // = R * e3
     R_s = R * hat(u1); 
@@ -84,7 +87,7 @@ void odeCtr(
     
     // For a point force (modeled as a Dirac distribution at the tip), the integral of the force distribution is simply the magnitude of the point force
     Vector3d forceIntegral = f; 
-    Vector3d u1xy_s_3d = -i_K * SUM -i_K * hat(e3) * R.transpose() * forceIntegral;
+    Vector3d u1xy_s_3d = -i_K * SUM -i_K * hat(e3) * R.transpose() * forceIntegral - i_K * R.transpose() * l;
     
     u1xy_s = u1xy_s_3d(seqN(0,2));
     y_s_out[17] = thetha_s(1);

@@ -11,7 +11,11 @@ namespace CTR_CONST{
     constexpr int NB_YU0 = n + 2;               // number of unknown initial state variables
     constexpr int NB_BC = n + 2;                // number of variables in boundary condition residuals 
 
+    constexpr int NB_W = 6;
+
     constexpr double pi = 3.1415926535897932384626433832795028841971L;
+
+    typedef Eigen::Vector<double,6> Vector_w; // type for external wrench
 }
 
 struct segmentedData{

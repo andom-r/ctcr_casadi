@@ -15,7 +15,7 @@
  * @param[in] Ux Vector of precurvature for each tube
  * @param[in] l Vector of effective length for each tube
  * @param[in] l_k Vector of precurved length for each tube (we assume a tube is composed of a straight part and a precurved part with constant precurvature)
- * @param[in] f External punctual force applied at the end-effector (3d-vector expressed in the robot base fraome)
+ * @param[in] w External wrench applied at the end-effector (6d-vector expressed in the robot base frame)
  * 
  * @param[out] yTot_out Output state variables at each integration node associated with the "nominal" computation solveIVP(yu0,q,...)
  * @param[out] b_out Output residuals of boundary conditions associated with the "nominal" computation solveIVP(yu0,q,...)
@@ -34,7 +34,7 @@
     const Eigen::Vector<double,CTR_CONST::n> &Ux,
     const Eigen::Vector<double,CTR_CONST::n> &l,
     const Eigen::Vector<double,CTR_CONST::n> &l_k,
-    const Eigen::Vector3d &f,
+    const CTR_CONST::Vector_w &w,
 
     Eigen::Matrix<double,CTR_CONST::nStateVar,CTR_CONST::nSegMax*CTR_CONST::nIntPoints> &yTot_out,
     Eigen::Vector<double,CTR_CONST::NB_BC> &b_out,

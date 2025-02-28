@@ -9,7 +9,7 @@ using namespace CTR_CONST;
 void solveIVP(  const Vector<double,NB_YU0>    &yu0,
                 const Vector<double,NB_Q>      &q,
                 const segmentedData            &segmented,
-                const Vector3d                 &f,
+                const Vector_w                 &w,
 
                 Matrix<double,nStateVar,nSegMax*nIntPoints> &yTot_out)
 {
@@ -75,7 +75,7 @@ void solveIVP(  const Vector<double,NB_YU0>    &yu0,
     Vector<double,n> Kzs = KKz(all,seg);
     Vector<double,n> Uxs = UUx(all,seg);
     // Forward integration for the current segment
-    Matrix<double,nStateVar,nIntPoints> ySeg = odeIntCtrRK4(y0, s0, sL, Kxys,Kzs,Uxs,f);
+    Matrix<double,nStateVar,nIntPoints> ySeg = odeIntCtrRK4(y0, s0, sL, Kxys,Kzs,Uxs,w);
     // Append the result of integration to the matrix containing the result of the whole CTR
     yTot_out(all,Eigen::seqN(seg*nIntPoints,nIntPoints)) = ySeg;
      // If there is a next segment, compute next initial conditions regarding
