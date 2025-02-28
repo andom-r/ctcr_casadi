@@ -2,57 +2,57 @@
 #define CTR_MODEL_H
 #include "Eigen/Dense"
 #include "ctrConstants.h"
-#include "loadParameters.h"
 
-class CtrModel
-{
-public:
-    CtrModel(parameters p);
-    virtual ~CtrModel();
+namespace CtrLib{
+    struct parameters; // forward declaration (defined in "loadParameters.h")
+    class CtrModel
+    {
+    public:
+        CtrModel(const parameters &p);
+        virtual ~CtrModel();
 
-    //template <COMPUTATION_OPTION opt> 
-    int Compute(Eigen::Vector<double,CTR_CONST::NB_Q> q, computationOptions); // Compute end-effector position
+        //template <COMPUTATION_OPTION opt> 
+        int Compute(const Vector_q &q, const computationOptions &opt); // Compute end-effector position
 
-    const Eigen::Vector<double, 2 * CTR_CONST::n> GetOffset(){return offset;};
-    const Eigen::Vector<double,CTR_CONST::n> GetUx(){return Ux;};
-    const Eigen::Vector<double,CTR_CONST::n> GetL(){return l;};
-    const Eigen::Vector<double,CTR_CONST::n> GetL_k(){return l_k;};
-    const Eigen::Vector<double,CTR_CONST::n> GetKxy(){return Kxy;};
-    const Eigen::Vector<double,CTR_CONST::n> GetKz(){return Kz;};
-    const CTR_CONST::Vector_w GetW(){return w;};
-    const Eigen::Matrix<double,CTR_CONST::nStateVar,CTR_CONST::nSegMax*CTR_CONST::nIntPoints> GetYTot(){return yTot;}
-    const Eigen::Vector<double,CTR_CONST::NB_YU0> GetYu0(){return yu0;};
-    const Eigen::Vector3d GetX(){return X;};
-    const Eigen::Matrix3d GetR(){return R;};
-    const Eigen::Matrix<double,CTR_CONST::NB_X,CTR_CONST::NB_Q> GetJ(){return J;};
-    const Eigen::Matrix<double,CTR_CONST::NB_X,CTR_CONST::NB_W> GetC(){return C;};
+        const Vector_q GetOffset(){return offset;};
+        const Eigen::Vector<double, NB_TUBES> GetUx(){return Ux;};
+        const Eigen::Vector<double, NB_TUBES> GetL(){return l;};
+        const Eigen::Vector<double, NB_TUBES> GetL_k(){return l_k;};
+        const Eigen::Vector<double, NB_TUBES> GetKxy(){return Kxy;};
+        const Eigen::Vector<double, NB_TUBES> GetKz(){return Kz;};
+        const Vector_w GetW(){return w;};
+        const Matrix_yTot GetYTot(){return yTot;}
+        const Vector_yu0 GetYu0(){return yu0;};
+        const Eigen::Vector3d GetP(){return P;};
+        const Eigen::Matrix3d GetR(){return R;};
+        const Matrix_J GetJ(){return J;};
+        const Matrix_C GetC(){return C;};
 
-    void setW(CTR_CONST::Vector_w _w){w = _w;};
+        void SetW(const Vector_w &_w){w = _w;};
 
-    segmentedData segmented;
+        segmentedData segmented;
 
-protected:
-    Eigen::Vector<double,CTR_CONST::n> Ux;         // Precurvature along x-axis (m^-1) for each tube
-    Eigen::Vector<double,CTR_CONST::n> l;          // Effective length for each tube [m]
-    Eigen::Vector<double,CTR_CONST::n> l_k;        // Precurved length for each tube [m]
-    Eigen::Vector<double,CTR_CONST::n> Kxy;        // Bending stiffness E*I (Pa.m^4) for each tube 
-    Eigen::Vector<double,CTR_CONST::n> Kz;         // Torsional stiffnes G*J (Pa.m^4) for each tube
-    Eigen::Vector<double,CTR_CONST::NB_Q> q;       // Actuation variables [beta_i, alpha_i] with beta the translations (m) and alpha the rotations (rad) actuation
-    Eigen::Vector<double,CTR_CONST::NB_BC> b;      // Boundary condition errors
-    CTR_CONST::Vector_w w;                         // External wrench applied on the end-effector
-    Eigen::Matrix<double,CTR_CONST::nStateVar,
-        CTR_CONST::nSegMax*CTR_CONST::nIntPoints> yTot; // Matrix containing state variables along arc-length (at each integration node, as defined in "ctrConstants.h")
-    Eigen::Vector<double,CTR_CONST::NB_YU0> yu0;   // Guess for unknown initial state variables
-    Eigen::Vector3d X;                             // Position of the end-effector
-    Eigen::Matrix3d R;                             // Orientation of the end-effector as a rotation matrix
+    protected:
+        Eigen::Vector<double, NB_TUBES> Ux;         // Precurvature along x-axis (m^-1) for each tube
+        Eigen::Vector<double, NB_TUBES> l;          // Effective length for each tube [m]
+        Eigen::Vector<double, NB_TUBES> l_k;        // Precurved length for each tube [m]
+        Eigen::Vector<double, NB_TUBES> Kxy;        // Bending stiffness E*I (Pa.m^4) for each tube 
+        Eigen::Vector<double, NB_TUBES> Kz;         // Torsional stiffnes G*J (Pa.m^4) for each tube
+        Vector_q q;       // Actuation variables [beta_i, alpha_i] with beta the translations (m) and alpha the rotations (rad) actuation
+        Vector_bc b;      // Boundary condition errors
+        Vector_w w;                         // External wrench applied on the end-effector
+        Matrix_yTot yTot; // Matrix containing state variables along arc-length (at each integration node, as defined in "ctrConstants.h")
+        Vector_yu0 yu0;   // Guess for unknown initial state variables
+        Eigen::Vector3d P;                             // Position of the end-effector
+        Eigen::Matrix3d R;                             // Orientation of the end-effector as a rotation matrix
 
-    Eigen::Matrix<double,CTR_CONST::NB_X,CTR_CONST::NB_Q> J;    // Robot Jacobian
-    Eigen::Matrix<double,CTR_CONST::NB_X,CTR_CONST::NB_W> C;    // Robot Compliance
+        Matrix_J J;    // Robot Jacobian
+        Matrix_C C;    // Robot Compliance
 
-    Eigen::Vector<double, 2 * CTR_CONST::n> offset; // Translational and rotational offsets (between the "actuator zero position" and the "zero position" defined in the model) [m ; m; m; rad; rad; rad]
-private:
-    
+        Vector_q offset; // Translational and rotational offsets (between the "actuator zero position" and the "zero position" defined in the model) [m ; m; m; rad; rad; rad]
+    private:
+        
 
-};
-
+    };
+}
 #endif // CTR_MODEL_H

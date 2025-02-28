@@ -2,13 +2,14 @@
 #include <thread>
 #include <chrono>
 
+#include "loadParameters.h"
 #include "CtrModel.h"
 #include "pinv.h"
 #include "plotCtr.h"
 
 using namespace std::chrono;
 using namespace Eigen;
-using namespace CTR_CONST;
+using namespace CtrLib;
 
 int main(int, char**){
   // Example 2 : Simple control scenario for a straight line
@@ -24,16 +25,15 @@ int main(int, char**){
 
   CtrModel ctr(pNominal);
   // declare actuation variables q
-  Vector<double,NB_Q> q;
-  q << -0.3, -0.2, -0.1, 0.0, 0.0, 0.0; // arbitrary initial configuration
+  Vector_q q(-0.3, -0.2, -0.1, 0.0, 0.0, 0.0); // arbitrary initial configuration
   // Compute model and robot Jacobian matrix
-  constexpr computationOptions opt_LOAD_J = { .isExternalLoads = true, .isComputeJacobian = true, .isComputeCompliance = false, .nbThreads = 1};
   ctr.Compute(q, opt_LOAD_J);
 
+  ///// Part II : Initialize control simulation
   // Get end-effector position
-  Vector<double,3> X = ctr.GetX();
+  Vector3d P = ctr.GetP();
   // Set desired position as the current position +20 mm towards the +x direction and +20 mm towards the +y direction
-  Vector<double,3> Xd = X + Vector3d(20e-3, 20e-3, 0.0); 
+  Vector3d Pdes = P + Vector3d(20e-3, 20e-3, 0.0); 
 
   constexpr double dt = 0.025; // Time sampling for the simulation : 40 Hz / 25 ms
   // Control parameters from the parameter file
@@ -47,34 +47,39 @@ int main(int, char**){
   Matrix<double,6,6> W1 = Matrix<double,6,6>(Vector<double,6>(w1_t, w1_t, w1_t, w1_r, w1_r, w1_r).asDiagonal());
 
   constexpr double epsilon = 0.1e-3; // Run the control simulation until the robot tip position is at most 0.1 mm away from the desired position
-  
-  plotCtr(ctr.GetYTot(), ctr.segmented.iEnd, X.transpose());
+    
+  // Initialize plot
+  plotCtr(ctr.GetYTot(), ctr.segmented.iEnd, P.transpose());
   std::this_thread::sleep_for(1s); // wait for the plot to initialize
 
   constexpr int logSize = 100; //should be enough
   // trajectory log to display the simulated trajectory
   Matrix<double,logSize,3> logTraj = Matrix<double,logSize,3>::Zero();
   int i = 0;
-  while((Xd - X).norm() > epsilon){
-    // simple example without actuation constraints & obstacle avoidance (just v0,v1 & not v2,v3)
+
+  ///// Part III : Simulation loop
+  while((Pdes - P).norm() > epsilon){
+    // Simple example without actuation constraints & obstacle avoidance (just v0,v1 & not v2,v3)
 
     // Determine velocity for each task
-    Vector<double,6> X_prime_des;
-    X_prime_des(seqN(0,3)) = lambda * (Xd - X) / dt;    // Tracking in translation
+    Vector_X X_prime_des; // Desired end-effector velocity
+    X_prime_des(seqN(0,3)) = lambda * (Pdes - P) / dt;    // Tracking in translation
     X_prime_des(seqN(3,3)) = Vector<double,3>::Zero();  // No tracking in rotation here
-    Vector<double,6> v0 = X_prime_des;
-    //Vector<double,6> v1 = Vector<double,6>::Zero(); // v1 = 0 for damping (implicit)
+    Vector_X v0 = X_prime_des;
+    //Vector_q v1 = Vector<double,6>::Zero(); // v1 = 0 for damping (implicit)
 
     // Compute actuation speed qp_d using Generalized-Damped-Least-Squares method
-    Matrix<double,6,6> J = ctr.GetJ();
+    Matrix_J J = ctr.GetJ();
     Matrix<double,6,6> temp = J.transpose() * W0 * J + W1; // pinv(expression) without temp variable won't compile
-    Vector<double,6> qp_d = pinv(temp) * (J.transpose() * W0 * v0);
+    Vector_q qp_d = pinv(temp) * (J.transpose() * W0 * v0);
 
-    // Simulation
+    // Simulate CTR
     q += qp_d * dt;
     ctr.Compute(q, opt_LOAD_J);
-    X = ctr.GetX();
-    logTraj(i,all) = X;
+    P = ctr.GetP();
+    
+    // Log and plot
+    logTraj(i,all) = P;
     plotCtr(ctr.GetYTot(), ctr.segmented.iEnd, logTraj(seq(0,i),all));
     i++;
 

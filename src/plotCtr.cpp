@@ -5,9 +5,9 @@
 #include "ctrConstants.h"
 
 using namespace Eigen;
-using namespace CTR_CONST;
 
-void plotCtr(const Matrix<double,nStateVar,nSegMax*nIntPoints>& y, const Vector<int,3>& iEnd, const MatrixXd& xScatter){
+namespace CtrLib{
+void plotCtr(const Matrix_yTot& y, const Vector<int,3>& iEnd, const MatrixXd& xScatter){
   static Gnuplot gp;
   static bool init = false;
   if(!init){
@@ -27,9 +27,9 @@ void plotCtr(const Matrix<double,nStateVar,nSegMax*nIntPoints>& y, const Vector<
   int sz_end1 = getYtotIndexFromIend(iEnd(1)) + 1;
   int sz_end2 = getYtotIndexFromIend(iEnd(2)) + 1;
 
-  MatrixXd r1bis = y.topLeftCorner(n,sz_end0);
-  MatrixXd r2bis = y.topLeftCorner(n,sz_end1);
-  MatrixXd r3bis = y.topLeftCorner(n,sz_end2);
+  MatrixXd r1bis = y.topLeftCorner(NB_TUBES, sz_end0);
+  MatrixXd r2bis = y.topLeftCorner(NB_TUBES, sz_end1);
+  MatrixXd r3bis = y.topLeftCorner(NB_TUBES, sz_end2);
 
   MatrixXd r1T = r1bis.transpose();
   MatrixXd r2T = r2bis.transpose();
@@ -41,4 +41,5 @@ void plotCtr(const Matrix<double,nStateVar,nSegMax*nIntPoints>& y, const Vector<
   plots.add_plot1d(r3T, "with lines lw 5 linecolor rgb 'green' title 'tube 3'");
   plots.add_plot1d(xScatter, "with lines lw 1 linecolor rgb 'black' title 'trajectory'");
   gp << plots;
+}
 }
