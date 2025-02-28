@@ -35,18 +35,14 @@ namespace CtrLib{
   }
   int segmenting(
     const Vector_q &q,
-    const Vector<double, NB_TUBES> &Kxy,
-    const Vector<double, NB_TUBES> &Kz,
-    const Vector<double, NB_TUBES> &Ux,
-    const Vector<double, NB_TUBES> &l,
-    const Vector<double, NB_TUBES> &l_k,
+    const tubeParameters &tubes,
 
     segmentedData &segmented_out){
 
     // out : [S,iEnd,EE,II,GG,JJ,UUx]
     Vector<double, NB_TUBES> beta = q(Eigen::seqN(0, NB_TUBES)); // arc length of tube base (translation actuation)
-    Vector<double, NB_TUBES> tubeTipArcLength = l + beta;      //% arc lengths of the tip of the tubes
-    Vector<double, NB_TUBES> tubePrecurvatureArcLength = tubeTipArcLength - l_k;   //% arc-length where the tubes precurvature starts
+    Vector<double, NB_TUBES> tubeTipArcLength = tubes.l + beta;      //% arc lengths of the tip of the tubes
+    Vector<double, NB_TUBES> tubePrecurvatureArcLength = tubeTipArcLength - tubes.l_k;   //% arc-length where the tubes precurvature starts
     Vector<double, 2 * NB_TUBES + 1> points; // number of segment delimitations = 1 + tubePrecurvatureArcLength.size() + tubeTipArcLength.size()
     points << 0, tubePrecurvatureArcLength, tubeTipArcLength;
 
@@ -119,11 +115,11 @@ namespace CtrLib{
         segmented_out.S(iSegment) = sumL;
         for (int i = 0; i < NB_TUBES; i++){
           if(j < segmented_out.iEnd(i)){ // if tube exists
-            segmented_out.KKxy(i,iSegment) = Kxy(i);
-            segmented_out.KKz(i,iSegment) = Kz(i);
+            segmented_out.KKxy(i,iSegment) = tubes.Kxy(i);
+            segmented_out.KKz(i,iSegment) = tubes.Kz(i);
           }
           if(j >= iCurved(i) && j < segmented_out.iEnd(i)){ // if tube is curved
-            segmented_out.UUx(i,iSegment) = Ux(i);
+            segmented_out.UUx(i,iSegment) = tubes.Ux(i);
           }
         }
         iSegment++;

@@ -56,6 +56,14 @@ namespace CtrLib{
         bool isComputeCompliance;   // true to compute the compliance matrix 
         int  nbThreads;             // number of threads to use for parallel computing (simply use 1 for single-thread computation)
         };
+
+    struct tubeParameters{
+        Eigen::Vector<double, NB_TUBES> Ux;         // Precurvature along x-axis (m^-1) for each tube
+        Eigen::Vector<double, NB_TUBES> l;          // Effective length for each tube [m]
+        Eigen::Vector<double, NB_TUBES> l_k;        // Precurved length for each tube [m]
+        Eigen::Vector<double, NB_TUBES> Kxy;        // Bending stiffness E*I (Pa.m^4) for each tube 
+        Eigen::Vector<double, NB_TUBES> Kz;         // Torsional stiffnes G*J (Pa.m^4) for each tube
+    };
     // pre-defined options for single-thread computing the loaded model / loaded + Jacobian matrix / loaded + Jacobian and Compliance matrices
     constexpr computationOptions opt_LOAD     = { .isExternalLoads = true, 
                                                   .isComputeJacobian = false, 
@@ -97,4 +105,5 @@ namespace CtrLib{
         return getRvFromYtot(yTot, segmented).reshaped<Eigen::RowMajor>(3,3);
     };
 }
+
 #endif //CTR_CONSTANTS_H

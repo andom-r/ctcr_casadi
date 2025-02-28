@@ -1,4 +1,6 @@
 #include <iostream>
+#include <stdexcept>
+
 #include "Eigen/Dense"
 #include "ComputeIvpJacobianMatrices.h"
 #include "segmenting.h"
@@ -15,35 +17,23 @@ namespace CtrLib{
   int ComputeIvpJacobianMatrices( 
     const Vector_q &q,
     const Vector_yu0 &yu0,
-    const Vector<double, NB_TUBES> &Kxy,
-    const Vector<double, NB_TUBES> &Kz,
-    const Vector<double, NB_TUBES> &Ux,
-    const Vector<double, NB_TUBES> &l,
-    const Vector<double, NB_TUBES> &l_k,
+    const tubeParameters &tubes,
     const Vector_w &w,
+    const computationOptions &opt,
 
-    Matrix_yTot &yTot_out,
-    Vector_bc &b_out,
-    Matrix_Eq &Eq_out,
-    Matrix_Eu &Eu_out,
-    Matrix_Ew &Ew_out,
-    Matrix_Bq &Bq_out,
-    Matrix_Bu &Bu_out,
-    Matrix_Bw &Bw_out,
-    const computationOptions &opt){
+    ComputeIvpJacMatOut &out){
 
     if(opt.isExternalLoads && !opt.isComputeJacobian && !opt.isComputeCompliance){
-      return ComputeIvpJacobianMatrices<LOAD>(q, yu0,Kxy,Kz,Ux, l, l_k,w, yTot_out, b_out, Eq_out, Eu_out, Ew_out, Bq_out, Bu_out, Bw_out, opt.nbThreads);
+      return ComputeIvpJacobianMatrices<LOAD>(q, yu0, tubes, w, opt.nbThreads, out);
     }
     else if(opt.isExternalLoads && opt.isComputeJacobian && !opt.isComputeCompliance){
-      return ComputeIvpJacobianMatrices<LOAD_J>(q, yu0,Kxy,Kz,Ux, l, l_k,w, yTot_out, b_out, Eq_out, Eu_out, Ew_out, Bq_out, Bu_out, Bw_out, opt.nbThreads);
+      return ComputeIvpJacobianMatrices<LOAD_J>(q, yu0, tubes, w, opt.nbThreads, out);
     }
     else if(opt.isExternalLoads && opt.isComputeJacobian && opt.isComputeCompliance){
-      return ComputeIvpJacobianMatrices<LOAD_J_C>(q, yu0,Kxy,Kz,Ux, l, l_k,w, yTot_out, b_out, Eq_out, Eu_out, Ew_out, Bq_out, Bu_out, Bw_out, opt.nbThreads);
+      return ComputeIvpJacobianMatrices<LOAD_J_C>(q, yu0, tubes, w, opt.nbThreads, out);
     }
     else{
-      std::cout << "ComputeIvpJacobianMatrices() >> Error ! Unsupported combination of computation options !" << std::endl;
-      abort();
+      throw std::invalid_argument("ComputeIvpJacobianMatrices() >> Error ! Unsupported combination of computation options !");
     }
 
     }
@@ -52,22 +42,11 @@ namespace CtrLib{
   int ComputeIvpJacobianMatrices( 
     const Vector_q &q,
     const Vector_yu0 &yu0,
-    const Vector<double, NB_TUBES> &Kxy,
-    const Vector<double, NB_TUBES> &Kz,
-    const Vector<double, NB_TUBES> &Ux,
-    const Vector<double, NB_TUBES> &l,
-    const Vector<double, NB_TUBES> &l_k,
+    const tubeParameters &tubes,
     const Vector_w &w,
-
-    Matrix_yTot &yTot_out,
-    Vector_bc &b_out,
-    Matrix_Eq &Eq_out,
-    Matrix_Eu &Eu_out,
-    Matrix_Ew &Ew_out,
-    Matrix_Bq &Bq_out,
-    Matrix_Bu &Bu_out,
-    Matrix_Bw &Bw_out,
-    uint nThread)
+    uint nThread,
+    
+    ComputeIvpJacMatOut &out)
   {
     Matrix<double, 18, NB_Q> arrQ;
     Matrix<double, 18, NB_YU0> arrYu0;
@@ -135,9 +114,10 @@ namespace CtrLib{
         iMax = 18;
         break;
       default:
-        abort();
+        throw std::invalid_argument("ComputeIvpJacobianMatrices() >> Error ! Unsupported combination of computation options !");
         break;
     }
+    bool segmentingError = false;
     #pragma omp parallel for num_threads(nThread)
     for(int i = 0; i < iMax; i++){
         Vector_q q_i     = arrQ(i,all);
@@ -145,16 +125,16 @@ namespace CtrLib{
         Vector_w w_i     = arrW(i,all);
 
         segmentedData segmented_out;
-        if(segmenting(q_i,Kxy,Kz,Ux,l,l_k,segmented_out)!=0){
-          std::cout << "ComputeIvpJacobianMatrices()>> segmenting returned non-zero !" << std::endl;
-          //return -1;
+        if(segmenting(q_i, tubes, segmented_out)!=0){
+          #pragma omp atomic write
+          segmentingError = true;
         }
         Matrix_yTot yTot;
         solveIVP(yu0_i, q_i, segmented_out, w_i, yTot);
         if(i == 0){
-          yTot_out = yTot;
+          out.yTot = yTot;
         }
-        Vector_bc b = bcError(yTot, segmented_out.iEnd, Kxy(0), Kz(0), Ux(0), w_i);
+        Vector_bc b = bcError(yTot, tubes, segmented_out.iEnd, w_i);
 
         Vector3d P = getPFromYtot(yTot,segmented_out);
         arrG(i)(seq(0,2),seq(0,2)) = getRFromYtot(yTot,segmented_out);
@@ -164,7 +144,12 @@ namespace CtrLib{
         arrB(i,all) = b;
     }
 
-    b_out = arrB(0,all);
+    if(segmentingError){
+      std::cout << "ComputeIvpJacobianMatrices()>> segmenting returned non-zero !" << std::endl;
+      return -1;
+    }
+
+    out.b = arrB(0,all);
 
     Matrix<double,4,4> g0 = arrG(0);
     Vector3d P0 = g0(seq(0,2),3);
@@ -182,27 +167,27 @@ namespace CtrLib{
       Matrix<double,4,4> gi = arrG(1 +i);
       Matrix4d temp = (g0_inv * (gi - g0)) / epsilon_yu0;
       // Convert from se(3) to R^6 (apply vee operator)
-      Eu_out(seq(0,2),i) = temp(seq(0,2),3);                                   
-      Eu_out(3,i) = 0.5 * (temp(2,1) - temp(1,2));
-      Eu_out(4,i) = 0.5 * (temp(0,2) - temp(2,0));
-      Eu_out(5,i) = 0.5 * (temp(1,0) - temp(0,1));
+      out.Eu(seq(0,2),i) = temp(seq(0,2),3);                                   
+      out.Eu(3,i) = 0.5 * (temp(2,1) - temp(1,2));
+      out.Eu(4,i) = 0.5 * (temp(0,2) - temp(2,0));
+      out.Eu(5,i) = 0.5 * (temp(1,0) - temp(0,1));
 
       Vector_bc bi = arrB(1 + i,all);
 
-      Bu_out(all,i) = (bi - b_out) / epsilon_yu0;
+      out.Bu(all,i) = (bi - out.b) / epsilon_yu0;
     }
     if(opt == LOAD_J || opt == LOAD_J_C){
       for (int i = 0; i < NB_Q; i++){
         Matrix<double,4,4> gi = arrG(6 + i);
         Matrix4d temp = (g0_inv * (gi - g0)) / epsilon_q;
         // Convert from se(3) to R^6 (apply vee operator)
-        Eq_out(seq(0,2),i) = temp(seq(0,2),3);
-        Eq_out(3,i) = 0.5 * (temp(2,1) - temp(1,2));
-        Eq_out(4,i) = 0.5 * (temp(0,2) - temp(2,0));
-        Eq_out(5,i) = 0.5 * (temp(1,0) - temp(0,1));
+        out.Eq(seq(0,2),i) = temp(seq(0,2),3);
+        out.Eq(3,i) = 0.5 * (temp(2,1) - temp(1,2));
+        out.Eq(4,i) = 0.5 * (temp(0,2) - temp(2,0));
+        out.Eq(5,i) = 0.5 * (temp(1,0) - temp(0,1));
 
         Vector_bc bi = arrB(6 + i,all);
-        Bq_out(all,i) = (bi - b_out) / epsilon_q;
+        out.Bq(all,i) = (bi - out.b) / epsilon_q;
       }
     }
     if(opt == LOAD_J_C){
@@ -210,25 +195,25 @@ namespace CtrLib{
         Matrix<double,4,4> gi = arrG(12 + i);
         Matrix4d temp = (g0_inv * (gi - g0)) / epsilon_f;
         // Convert from se(3) to R^6 (apply vee operator)
-        Ew_out(seq(0,2),i) = temp(seq(0,2),3);
-        Ew_out(3,i) = 0.5 * (temp(2,1) - temp(1,2));
-        Ew_out(4,i) = 0.5 * (temp(0,2) - temp(2,0));
-        Ew_out(5,i) = 0.5 * (temp(1,0) - temp(0,1));
+        out.Ew(seq(0,2),i) = temp(seq(0,2),3);
+        out.Ew(3,i) = 0.5 * (temp(2,1) - temp(1,2));
+        out.Ew(4,i) = 0.5 * (temp(0,2) - temp(2,0));
+        out.Ew(5,i) = 0.5 * (temp(1,0) - temp(0,1));
 
         Vector_bc bi = arrB(12 + i,all);
-        Bw_out(all,i) = (bi - b_out) / epsilon_f;
+        out.Bw(all,i) = (bi - out.b) / epsilon_f;
       }
       for (int i = 3; i < 6; i++){
         Matrix<double,4,4> gi = arrG(12 + i);
         Matrix4d temp = (g0_inv * (gi - g0)) / epsilon_l;
         // Convert from se(3) to R^6 (apply vee operator)
-        Ew_out(seq(0,2),i) = temp(seq(0,2),3);
-        Ew_out(3,i) = 0.5 * (temp(2,1) - temp(1,2));
-        Ew_out(4,i) = 0.5 * (temp(0,2) - temp(2,0));
-        Ew_out(5,i) = 0.5 * (temp(1,0) - temp(0,1));
+        out.Ew(seq(0,2),i) = temp(seq(0,2),3);
+        out.Ew(3,i) = 0.5 * (temp(2,1) - temp(1,2));
+        out.Ew(4,i) = 0.5 * (temp(0,2) - temp(2,0));
+        out.Ew(5,i) = 0.5 * (temp(1,0) - temp(0,1));
 
         Vector_bc bi = arrB(12 + i,all);
-        Bw_out(all,i) = (bi - b_out) / epsilon_l;
+        out.Bw(all,i) = (bi - out.b) / epsilon_l;
       }
     }
 
@@ -238,60 +223,27 @@ namespace CtrLib{
   template int ComputeIvpJacobianMatrices<LOAD>( 
     const Vector_q &q,
     const Vector_yu0 &yu0,
-    const Eigen::Vector<double, NB_TUBES> &Kxy,
-    const Eigen::Vector<double, NB_TUBES> &Kz,
-    const Eigen::Vector<double, NB_TUBES> &Ux,
-    const Eigen::Vector<double, NB_TUBES> &l,
-    const Eigen::Vector<double, NB_TUBES> &l_k,
+    const tubeParameters &tubes,
     const Vector_w &w,
+    uint nThread,
 
-    Matrix_yTot &yTot_out,
-    Vector_bc &b_out,
-    Matrix_Eq &Eq_out,
-    Matrix_Eu &Eu_out,
-    Matrix_Ew &Ew_out,
-    Matrix_Bq &Bq_out,
-    Matrix_Bu &Bu_out,
-    Matrix_Bw &Bw_out,
-    uint nThread);
+    ComputeIvpJacMatOut &out);
 
   template int ComputeIvpJacobianMatrices<LOAD_J>( 
     const Vector_q &q,
     const Vector_yu0 &yu0,
-    const Eigen::Vector<double, NB_TUBES> &Kxy,
-    const Eigen::Vector<double, NB_TUBES> &Kz,
-    const Eigen::Vector<double, NB_TUBES> &Ux,
-    const Eigen::Vector<double, NB_TUBES> &l,
-    const Eigen::Vector<double, NB_TUBES> &l_k,
+    const tubeParameters &tubes,
     const Vector_w &w,
+    uint nThread,
 
-    Matrix_yTot &yTot_out,
-    Vector_bc &b_out,
-    Matrix_Eq &Eq_out,
-    Matrix_Eu &Eu_out,
-    Matrix_Ew &Ew_out,
-    Matrix_Bq &Bq_out,
-    Matrix_Bu &Bu_out,
-    Matrix_Bw &Bw_out,
-    uint nThread);
+    ComputeIvpJacMatOut &out);
 
   template int ComputeIvpJacobianMatrices<LOAD_J_C>( 
     const Vector_q &q,
     const Vector_yu0 &yu0,
-    const Eigen::Vector<double, NB_TUBES> &Kxy,
-    const Eigen::Vector<double, NB_TUBES> &Kz,
-    const Eigen::Vector<double, NB_TUBES> &Ux,
-    const Eigen::Vector<double, NB_TUBES> &l,
-    const Eigen::Vector<double, NB_TUBES> &l_k,
+    const tubeParameters &tubes,
     const Vector_w &w,
+    uint nThread,
 
-    Matrix_yTot &yTot_out,
-    Vector_bc &b_out,
-    Matrix_Eq &Eq_out,
-    Matrix_Eu &Eu_out,
-    Matrix_Ew &Ew_out,
-    Matrix_Bq &Bq_out,
-    Matrix_Bu &Bu_out,
-    Matrix_Bw &Bw_out,
-    uint nThread);
+    ComputeIvpJacMatOut &out);
 }

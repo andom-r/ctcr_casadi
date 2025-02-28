@@ -51,28 +51,17 @@ int timingIVP(int nSteps, int nMaxThread){
   }
 
   Vector_yu0 yu0 = ctr.GetYu0();
-  Vector<double, NB_TUBES> Kxy      = ctr.GetKxy();
-  Vector<double, NB_TUBES> Kz       = ctr.GetKz();
-  Vector<double, NB_TUBES> Ux       = ctr.GetUx();
-  Vector<double, NB_TUBES> l        = ctr.GetL();
-  Vector<double, NB_TUBES> l_k      = ctr.GetL_k();
+  tubeParameters tubes = ctr.GetTubeParameters();
   Vector_w w = Vector_w::Zero();
 
-  Matrix_yTot yTot_out;
-  Vector_bc b_out;
-  Matrix_Eq Eq_out;
-  Matrix_Eu Eu_out;
-  Matrix_Ew Ew_out;
-  Matrix_Bq Bq_out;
-  Matrix_Bu Bu_out;
-  Matrix_Bw Bw_out;
+  ComputeIvpJacMatOut out;
 
   for(int j = 0; j < nMaxThread; j++){
     int nThread = j + 1;
     auto start = high_resolution_clock::now();
     for (int i = 0; i < nSteps; i++){
       q(3) = a1_v(i); // rotate inner tube (tube 1)
-      if(ComputeIvpJacobianMatrices<opt>(q,yu0,Kxy,Kz,Ux,l,l_k,w,yTot_out,b_out,Eq_out,Eu_out,Ew_out,Bq_out,Bu_out,Bw_out, nThread) != 0){
+      if(ComputeIvpJacobianMatrices<opt>(q, yu0, tubes, w, nThread, out) != 0){
         std::cout << "CtrModel::Compute()>> ComputeIvpJacobianMatrices() returned non-zero !" << std::endl;
         return -1;
       }

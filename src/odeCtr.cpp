@@ -26,7 +26,7 @@ namespace CtrLib{
         // 0:2  : r
         // 3:11 : R
         // 12:14 : u1
-        // 14:13 + NB_TUBES (14:16): uz (14:u1z both in "u1" and in "uz")
+        // 14:13 + NB_TUBES (14:16): uz (u1z is both in "u1" and in "uz")
         // 14 + NB_TUBES (17:18): 12+2 * NB_TUBES : theta(i+1) (theta1 = 0)
 
         Matrix3d R = Map<Matrix<double,3,3,RowMajor>>(&y[3]);
@@ -59,14 +59,14 @@ namespace CtrLib{
             double si = sin(theta(i));
 
             Matrix3d R_theta_i;
-            R_theta_i <<  ci, -si, 0,
-                        si, ci,  0,
-                        0,  0,   1;
+            R_theta_i <<  ci, -si,  0,
+                          si,  ci,  0,
+                           0,   0,  1;
 
             Matrix3d d_R_thetai_t___dTheta_i;
             d_R_thetai_t___dTheta_i <<  -si,  ci,  0,
-                                        -ci,  -si, 0,
-                                        0,    0,   0;
+                                        -ci, -si,  0,
+                                          0,   0,  0;
 
             Vector3d u_i = R_theta_i.transpose() * u1 + thetha_s(i) * e3;
             Vector3d U_i(Ux(i), 0, 0);

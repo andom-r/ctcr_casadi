@@ -67,6 +67,7 @@ namespace CtrLib{
       // Construct vector of initial state variables
       Eigen::Vector<double, NB_STATE_VAR> y0;
       y0 << r0 , R0 , u1_0 , u2z_0 , u3z_0, t2_0, t3_0;
+
       // Get start and end arc-length
       double s0 = span(seg);
       double sL = span(seg+1);
@@ -75,10 +76,13 @@ namespace CtrLib{
       Vector<double, NB_TUBES> Kxys = KKxy(all,seg);
       Vector<double, NB_TUBES> Kzs = KKz(all,seg);
       Vector<double, NB_TUBES> Uxs = UUx(all,seg);
+
       // Forward integration for the current segment
       Matrix<double, NB_STATE_VAR, NB_INTEGRATION_NODES> ySeg = odeIntCtrRK4(y0, s0, sL, Kxys,Kzs,Uxs,w);
+
       // Append the result of integration to the matrix containing the result of the whole CTR
       yTot_out(all,Eigen::seqN(seg * NB_INTEGRATION_NODES,NB_INTEGRATION_NODES)) = ySeg;
+
       // If there is a next segment, compute next initial conditions regarding
       // continuity equations
       if (seg < nSeg-1){
@@ -116,10 +120,9 @@ namespace CtrLib{
         Matrix2d k2; k2 << k2xy, 0, 0, k2xy;
         Matrix2d k3; k3 << k3xy, 0, 0, k3xy;
 
-        Vector2d sumMomentsBefore = k1 * delta_u1 + R2*k2*delta_u2 + R3*k3*delta_u3;
+        Vector2d sumMomentsBefore = k1 * delta_u1 + R2 * k2 * delta_u2 + R3 * k3 * delta_u3;
 
         // Bending stiffness after the discontinuity
-
         k1xy = KKxy(0,seg+1);
         k2xy = KKxy(1,seg+1);
         k3xy = KKxy(2,seg+1);
@@ -142,10 +145,12 @@ namespace CtrLib{
 
         u1_0(0) = u1(0);
         u1_0(1) = u1(1);
+
         // u_i,z- = u_i,z+
         u1_0(2) = ySeg(14, NB_INTEGRATION_NODES - 1);
         u2z_0   = ySeg(15, NB_INTEGRATION_NODES - 1);
         u3z_0   = ySeg(16, NB_INTEGRATION_NODES - 1);
+        
         // theta_i- = theta_i+
         t2_0    = ySeg(17, NB_INTEGRATION_NODES - 1);
         t3_0    = ySeg(18, NB_INTEGRATION_NODES - 1);

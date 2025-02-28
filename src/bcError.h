@@ -9,19 +9,16 @@ namespace CtrLib{
  * @brief Error function computing the residuals of the boundary conditions
  * 
  * @param y     Matrix containing the state variable at each integration node
- * @param iEnd  Vector containing the index of the segment where each tube ends
- * @param kxy1  Bending stiffness of inner tube
- * @param Ux1   Precurvature of inner tube
+ * @param tubes Struct containing tube parameters
+ * @param iEnd  Vector of the segment index where each tube ends
  * @param w     External wrench applied on the end-effector
- * @return Vector containing the residuals of the boundary conditions [u1z, u2z, u3z, mx, my].
+ * @return Vector containing the residuals of the boundary conditions [mx, my, mz, u2z, u3z].
  */
 
 Vector_bc bcError(
   const Matrix_yTot &y,
+  const tubeParameters &tubes,
   const Eigen::Vector<int, NB_TUBES> &iEnd,
-  double kxy1,
-  double kz1,
-  double Ux1,
   const Vector_w &w);
 }
 #endif //BC_ERROR_H

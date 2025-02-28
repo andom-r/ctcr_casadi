@@ -25,14 +25,20 @@ int main(int, char**){
   //    - opt_LOAD      to compute the loaded model
   //    - opt_LOAD_J    to compute the loaded model and the robot Jacobian matrix
   //    - opt_LOAD_J_C  to compute the loaded model and the robot Jacobian and compliance matrices
-  ctr.Compute(q, opt_LOAD);
+  if(ctr.Compute(q, opt_LOAD) < 0){
+    std::cout << "main()>> Error ! ctr.Compute() returned non-zero " << std::endl;
+    return -1;
+  }
   
   // Or create user-defined option (e.g. to adjust the number of threads for parallel computing)
   computationOptions opt = {.isExternalLoads = true, 
                             .isComputeJacobian = false, 
                             .isComputeCompliance = false, 
                             .nbThreads = 4};
-  ctr.Compute(q, opt);
+  if(ctr.Compute(q, opt) < 0){
+    std::cout << "main()>> Error ! ctr.Compute() returned non-zero " << std::endl;
+    return -1;
+  }
 
   // Get end-effector position
   Vector3d P = ctr.GetP();

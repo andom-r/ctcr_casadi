@@ -27,7 +27,11 @@ int main(int, char**){
   // declare actuation variables q
   Vector_q q(-0.3, -0.2, -0.1, 0.0, 0.0, 0.0); // arbitrary initial configuration
   // Compute model and robot Jacobian matrix
-  ctr.Compute(q, opt_LOAD_J);
+  if(ctr.Compute(q, opt_LOAD_J) < 0){
+      std::cout << "main()>> Error ! ctr.Compute() returned non-zero " << std::endl;
+      return -1;
+    }
+  
 
   ///// Part II : Initialize control simulation
   // Get end-effector position
@@ -75,7 +79,10 @@ int main(int, char**){
 
     // Simulate CTR
     q += qp_d * dt;
-    ctr.Compute(q, opt_LOAD_J);
+    if(ctr.Compute(q, opt_LOAD_J) < 0){
+      std::cout << "main()>> Error ! ctr.Compute() returned non-zero " << std::endl;
+      return -1;
+    }
     P = ctr.GetP();
     
     // Log and plot

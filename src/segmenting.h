@@ -19,13 +19,9 @@ namespace CtrLib{
   * @return int (0 indicates success and < 0 indicates failure )
   */
   int segmenting(
-    const Vector_q                        &q,
-    const Eigen::Vector<double, NB_TUBES> &Kxy,
-    const Eigen::Vector<double, NB_TUBES> &Kz,
-    const Eigen::Vector<double, NB_TUBES> &Ux,
-    const Eigen::Vector<double, NB_TUBES> &l,
-    const Eigen::Vector<double, NB_TUBES> &l_k,
+    const Vector_q        &q,
+    const tubeParameters  &tubes,
 
-    segmentedData                         &segmented_out);
+    segmentedData         &segmented_out);
 }
 #endif //SEGMENTING_H
