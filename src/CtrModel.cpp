@@ -72,7 +72,7 @@ namespace CtrLib{
       
       // first iteration without J and/or C, just to compute the BC residuals and the Bu matrix
       if(ComputeIvpJacobianMatrices(q,yu0_tilde,tubes,w, opt, out) != 0){
-        std::cout << "CtrModel::Compute()>> ComputeIvpJacobianMatrices() returned non-zero !" << std::endl;
+        PRINT_DEBUG_MSG("CtrModel::Compute()>> ComputeIvpJacobianMatrices() returned non-zero !");
         return -1;
       }
       yu0_tilde -= pinv(out.Bu) * out.b; // update guess using Gauss-Newton
@@ -80,7 +80,7 @@ namespace CtrLib{
       nbIteration++;
       do{ // first pass with yu0 from previous computation
         if(ComputeIvpJacobianMatrices(q, yu0_tilde, tubes, w, opt, out) != 0){
-          std::cout << "CtrModel::Compute()>> ComputeIvpJacobianMatrices() returned non-zero !" << std::endl;
+          PRINT_DEBUG_MSG("CtrModel::Compute()>> ComputeIvpJacobianMatrices() returned non-zero !");
           return -1;
         }
         yu0_tilde -= pinv(out.Bu) * out.b; // update guess using Gauss-Newton
@@ -88,8 +88,8 @@ namespace CtrLib{
         nbIteration++;
       }while(out.b.norm() > maxNormB && nIter < nIterationsMax);
       if(out.b.hasNaN() || out.b.norm() > maxNormB){ // if the first pass fails
-        std::cout << "CtrModel::Compute()>> Model failed to converge after " << nbIteration << " iterations."
-          "Potential bifurcation detected, switching sign of initial guess for torsions and trying again." << std::endl;
+        PRINT_DEBUG_MSG("CtrModel::Compute()>> Model failed to converge after " << nbIteration << " iterations."
+          "Potential bifurcation detected, switching sign of initial guess for torsions and trying again.");
         //switch sign of torsion but keep x,y curvature
         yu0_tilde(0) = yu0(0);
         yu0_tilde(1) = yu0(1);
@@ -99,7 +99,7 @@ namespace CtrLib{
         nIter = 0;
         do{ //second pass, with opposite torsion
           if(ComputeIvpJacobianMatrices(q, yu0_tilde, tubes, w, opt, out) != 0){
-            std::cout << "CtrModel::Compute()>> ComputeIvpJacobianMatrices() returned non-zero !" << std::endl;
+            PRINT_DEBUG_MSG("CtrModel::Compute()>> ComputeIvpJacobianMatrices() returned non-zero !");
             return -1;
           }
           yu0_tilde -= pinv(out.Bu) * out.b; // update guess using Gauss-Newton
@@ -108,7 +108,7 @@ namespace CtrLib{
         }while(out.b.norm() > maxNormB && nIter < nIterationsMax);
       }
       if(out.b.hasNaN() || out.b.norm() > maxNormB){ // if the second pass fail
-        std::cout << "CtrModel::Compute()>> Model failed to converge even when switching sign of torsions !" << std::endl;
+        PRINT_DEBUG_MSG("CtrModel::Compute()>> Model failed to converge even when switching sign of torsions !");
         return -1;
       }
       
@@ -118,7 +118,7 @@ namespace CtrLib{
 
       segmentedData segmented_out;
       if(segmenting(q,tubes,segmented_out)!=0){
-        std::cout << "CtrModel::Compute()>> segmenting returned non-zero !" << std::endl;
+        PRINT_DEBUG_MSG("CtrModel::Compute()>> segmenting returned non-zero !");
         return -1;
       }
       segmented = segmented_out;

@@ -28,7 +28,6 @@ Vector_bc bcError(
   Vector<double, NB_STATE_VAR> y_tip = y(all, yTot_iEnd0); // state variables at the tip of the CTR
 
   // Compute internal moment at the end of the CTR (assuming that only the first tube is present at the end of the CTR)
-  //Matrix3d R1 = getRFromYtot(y,segmented);
   Matrix3d R1_tip = y_tip(seqN(3,9)).reshaped<RowMajor>(3,3);
   Vector3d u1_tip = y_tip(seqN(12,3));
   Matrix3d K1 = Matrix3d(Vector3d(tubes.Kxy(0), tubes.Kxy(0), tubes.Kz(0)).asDiagonal()); 

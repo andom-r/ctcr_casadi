@@ -41,8 +41,8 @@ namespace CtrLib{
 
     // out : [S,iEnd,EE,II,GG,JJ,UUx]
     Vector<double, NB_TUBES> beta = q(Eigen::seqN(0, NB_TUBES)); // arc length of tube base (translation actuation)
-    Vector<double, NB_TUBES> tubeTipArcLength = tubes.l + beta;      //% arc lengths of the tip of the tubes
-    Vector<double, NB_TUBES> tubePrecurvatureArcLength = tubeTipArcLength - tubes.l_k;   //% arc-length where the tubes precurvature starts
+    Vector<double, NB_TUBES> tubeTipArcLength = tubes.l + beta;      // arc lengths of the tip of the tubes
+    Vector<double, NB_TUBES> tubePrecurvatureArcLength = tubeTipArcLength - tubes.l_k;   // arc-length where the tubes precurvature starts
     Vector<double, 2 * NB_TUBES + 1> points; // number of segment delimitations = 1 + tubePrecurvatureArcLength.size() + tubeTipArcLength.size()
     points << 0, tubePrecurvatureArcLength, tubeTipArcLength;
 
@@ -61,28 +61,28 @@ namespace CtrLib{
     // i.e. beta_1 < beta_2 < beta_3 < 0 < tip_3 < tip_2 < tip_1 (for a 3-tube CTR)
     for (int i = 0; i < NB_TUBES - 1; i++){
       if (beta(i) > beta(i + 1)){
-        std::cout << "proximal end of tube " << i + 1 << " is clashing into tube " << i + 2 << std::endl;
-        std::cout << "beta = " << std::endl << beta << std::endl;
-        std::cout << "q = " << std::endl << q << std::endl;
+        PRINT_DEBUG_MSG("proximal end of tube " << i + 1 << " is clashing into tube " << i + 2);
+        PRINT_DEBUG_MSG("beta = " << std::endl << beta);
+        PRINT_DEBUG_MSG("q = " << std::endl << q);
         return -1;
       }
       if(tubeTipArcLength(i) < tubeTipArcLength(i + 1)){
-        std::cout << "distal end of tube " << i + 1 << " is clashing into tube " << i + 2 << std::endl;
-        std::cout << "tubeTipArcLength = " << std::endl << tubeTipArcLength << std::endl;
-        std::cout << "q = " << std::endl << q << std::endl;
+        PRINT_DEBUG_MSG("distal end of tube " << i + 1 << " is clashing into tube " << i + 2);
+        PRINT_DEBUG_MSG("tubeTipArcLength = " << std::endl << tubeTipArcLength);
+        PRINT_DEBUG_MSG("q = " << std::endl << q);
         return -1;
       }
     }
     if(beta(NB_TUBES - 1) > 0){
-        std::cout << "proximal end of tube " << NB_TUBES - 1 << " is outside the actuation unit" << std::endl;
-        std::cout << "beta = " << std::endl << beta << std::endl;
-        std::cout << "q = " << std::endl << q << std::endl;
+        PRINT_DEBUG_MSG("proximal end of tube " << NB_TUBES - 1 << " is outside the actuation unit");
+        PRINT_DEBUG_MSG("beta = " << std::endl << beta);
+        PRINT_DEBUG_MSG("q = " << std::endl << q);
         return -1;
     }
     if(tubeTipArcLength(NB_TUBES - 1) < 0){
-        std::cout << "distal end of tube " << NB_TUBES - 1 << " is inside the actuation unit" << std::endl;
-        std::cout << "tubeTipArcLength = " << std::endl << tubeTipArcLength << std::endl;
-        std::cout << "q = " << std::endl << q << std::endl;
+        PRINT_DEBUG_MSG("distal end of tube " << NB_TUBES - 1 << " is inside the actuation unit");
+        PRINT_DEBUG_MSG("tubeTipArcLength = " << std::endl << tubeTipArcLength);
+        PRINT_DEBUG_MSG("q = " << std::endl << q);
         return -1;
     }
 

@@ -91,7 +91,6 @@ namespace CtrLib{
         Vector<double,NB_W> wi = w;
         wi(i) = w(i) + epsilon_f;
         arrW(12 + i,all) = wi;
-        //std::cout << "i = " << i << " -> arrW[" << 12+i << "] = " << 
       }
       for(int i = 3; i < 6; i++){
         arrYu0(12 + i,all) = yu0; // nominal value for yu0
@@ -145,7 +144,7 @@ namespace CtrLib{
     }
 
     if(segmentingError){
-      std::cout << "ComputeIvpJacobianMatrices()>> segmenting returned non-zero !" << std::endl;
+      PRINT_DEBUG_MSG("ComputeIvpJacobianMatrices()>> segmenting returned non-zero !");
       return -1;
     }
 
