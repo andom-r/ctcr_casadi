@@ -33,6 +33,7 @@ A closed-loop control scheme based on our model implementation is then implement
 * Demonstation codes are located in the "demo" folder and show how to use the library in your own application.
     * The demo "001_model_computation" is a simple example of how to compute the kineto-static model.
     * The demo "002_control_line" is a simple control example, performing trajectory tracking of the end-effector in position along a straight line.
+    * The demo "003_timing_IVP" shows the model computation rate in different cases (loaded, loaded + jacobian matrix, loaded + jacobian and compliance matrices), and depending on the number of threads used.
     * Additional demonstration codes will be provided soon to reproduce the results shown in our paper.
  
 ## Prerequisites
