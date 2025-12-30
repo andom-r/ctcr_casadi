@@ -1,3 +1,30 @@
+########### already have **CasADi** and **IPOPT** ----> uncomment below.
+# # Detect platform
+# if (CMAKE_SYSTEM_NAME STREQUAL "Linux")
+#     set(CASADI_ROOT "${CMAKE_SOURCE_DIR}/third_party/casadi/linux")
+#     set(IPOPT_ROOT  "${CMAKE_SOURCE_DIR}/third_party/ipopt/linux")
+# else()
+#     message(FATAL_ERROR "This project currently supports Linux only.")
+# endif()
+
+# # CasADi
+# add_library(casadi SHARED IMPORTED)
+# set_target_properties(casadi PROPERTIES
+#     IMPORTED_LOCATION "${CASADI_ROOT}/libcasadi.so"
+#     INTERFACE_INCLUDE_DIRECTORIES "${CASADI_ROOT}"
+# )
+
+# # Ipopt
+# add_library(ipopt SHARED IMPORTED)
+# set_target_properties(ipopt PROPERTIES
+#     IMPORTED_LOCATION "${IPOPT_ROOT}/libipopt.so"
+#     INTERFACE_INCLUDE_DIRECTORIES "${IPOPT_ROOT}/include"
+# )
+
+# # Link them to your executable
+# target_link_libraries(your_target PRIVATE casadi ipopt)
+
+########### If using the bundled **CasADi** and **IPOPT** ----> uncomment below.
 cmake_minimum_required(VERSION 2.8.12 FATAL_ERROR)
 
 set(CMAKE_DISABLE_SOURCE_CHANGES ON)
@@ -30,7 +57,9 @@ include_directories(SYSTEM Library/eigen-3.4.0)
 include_directories(SYSTEM src)
 
 add_subdirectory(src)
+add_subdirectory(ctcr_casadi_wrappers)
 add_subdirectory(demo)
 
 set(CMAKE_DISABLE_SOURCE_CHANGES OFF)
 set(CMAKE_DISABLE_IN_SOURCE_BUILD OFF)
+

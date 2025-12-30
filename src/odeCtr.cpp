@@ -73,6 +73,7 @@ namespace CtrLib{
             Sum_i[i] = R_theta_i * ( K_i[i] * ( thetha_s(i) * d_R_thetai_t___dTheta_i * u1) + hat(u_i)*K_i[i] * (u_i - U_i ));
 
             Vector<double, NB_TUBES> Kz2 = Kz;
+            // # What happens when segment width is zero
             if (Kz2(i) == 0){
                 Kz2(i) = 1;//  % to avoid dividing by zero when tube doesn't exist
             }
@@ -83,6 +84,7 @@ namespace CtrLib{
         Matrix3d i_K = Matrix3d(Vector3d(1 / K(0,0), 1 / K(1,1), 1 / K(2,2)).asDiagonal());
         
         // For a point force (modeled as a Dirac distribution at the tip), the integral of the force distribution is simply the magnitude of the point force
+        // # ??????????????????
         Vector3d forceIntegral = f; 
         Vector3d u1xy_s_3d = -i_K * SUM -i_K * hat(e3) * R.transpose() * forceIntegral - i_K * R.transpose() * l;
         

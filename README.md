@@ -1,48 +1,44 @@
-## Warning !
-This is a temporary version of the code. It is functional yet, the documentation might be incomplete and only simple demonstration codes are available. A code revision will come shortly, providing demonstration codes to reproduce the results of our paper.
+# Modeling and Control of Concentric Tube Continuum Robots
 
-# Modeling and Control of Concentric Tube Continuum Robots 
-## This code is associated to the following paper, which we request to be explicitly cited in all forms of communication of your work:
+## Overview
+This repository builds on an upstream CTCR modeling implementation and adds control tooling, including wrappers for the CTCR model with **CasADi** for **MPC** formulation and testing. 
+It is **based on** the original source code from:
+https://github.com/TIMClab-CAMI/Modeling-and-Control-of-Concentric-Tube-Continuum-Robots
 
-> Quentin Boyer, Sandrine Voros, Pierre Roux, François Marionnet, Kanty Rabenorosoa and M. Taha Chikhaoui, "On High Performance Control of Concentric Tube Continuum Robots Through Parsimonious Calibration," in IEEE Robotics and Automation Letters, doi: 10.1109/LRA.2024.3455906
+## Citation
+If you use this work (or the upstream code) in academic or technical communications, please cite the original work and source code associated with:
 
-It provides an efficient numerical implementation of the kineto-static torsionally compliant model for Concentric Tube Continuum Robots (CTCRs), including external loads, as described in the paper Rucker et al., “A Geometrically Exact Model for Externally Loaded Concentric-Tube Continuum Robots”, in IEEE Transactions on Robotics, along with the computation of the robot Jacobian matrix and compliance matrix. This model is implemented in C++ and uses Eigen library for Vector and Matrix operations, and OpenMP for parallel computation. 
-A closed-loop control scheme based on our model implementation is then implemented, using the Generalized Damped Least Squares (GDLS) method to account for several concurrent tasks.
-For more details, please refer to the paper available at: https://hal.science/hal-04685717v1.
+> Quentin Boyer, Sandrine Voros, Pierre Roux, François Marionnet, Kanty Rabenorosoa and M. Taha Chikhaoui,  
+> "On High Performance Control of Concentric Tube Continuum Robots Through Parsimonious Calibration,"  
+> IEEE Robotics and Automation Letters, doi: 10.1109/LRA.2024.3455906
 
-![Github_figTrajObstacle_simu](https://github.com/user-attachments/assets/8174e7dd-2640-455a-84cc-a94f5881f410)
+### Acknowledgement to the upstream authors
+Many thanks to the original authors for their high-performance exact CTCR model implementation.
 
-## Modeling
+## Our Contributions
+This work extends the upstream CTCR modeling code with Model Predictive Control (MPC) tooling and a few practical improvements.
 
-The CTCR model is formulated as a multipoint Boundary Value Problem (BVP). The resolution is implemented using a shooting method.
-The robot is first divided into segments delimited by the ends of the tubes and by tube precurvature discontinuities. The Initial Value Problem (IVP) is solved using a single step of 4-th order Runge-Kutta integration scheme for each segment. The values of the state variables after the discontinuities are algebraically computed using the values before the discontinuities and the continuity equations. The BVP is solved using the Gauss-Newton algorithm, and the robot Jacobian matrix and compliance matrix can optionally be computed along the model. The use of templated functions allows heavy optimization by determining which parts of the model are required by the user at compile-time. Parallel computing is used to compute the jacobian matrices of the IVP based on the finite differences method. The model implementation does not use dynamic allocation and can easily be adopted in a real-time context. We validated it on Linux Xenomai 3.1 for our experimental setup.
+### 1) CasADi integration for MPC prototyping
+- Integrated **CasADi** to formulate and test MPC controllers using the CTCR exact model.
 
-## Control
+### 2) MPC with the exact CTCR model
+- Implemented and tested **MPC using the exact model** provided in the upstream repository, leveraging its optimized and fast implementation.
 
-A closed-loop control scheme based on our model implementation is then implemented. Using the (GDLS) method, several concurrent tasks are included in the control scheme, such as trajectory tracking, damping, actuation constraints, and obstacle avoidance. The control performances are demonstrated in simulation for a 3D trajectory representing a significant portion of the robot workspace, with an obstacle along the trajectory, and in presence of external forces.
+### 3) Jacobian-based MPC
+- Implemented and tested **Jacobian-based MPC**, using Jacobian information to improve optimization performance and control behavior.
 
-## Structure of the code
-* The model implementation is provided as a library, which sources are in the "src" folder.
-    * The "segmenting" function divides the CTCR into segments delimited by the ends of the tubes and by tube precurvature discontinuities.
-    * The "odeCtr" function implements the Ordinary Differential Equations.
-    * The "odeIntCtrRK4" function uses the classical Runge-Kutta 4 integration scheme to integrate the ODEs along one segment.
-    * The "solveIVP" function solves the IVP by computing the forward integration for each segment and algebraically calculating the state variable values for the next segment based on the values of the previous segment and the continuity equations.
-    * The "ComputeIvpJacobianMatrices" computes the IVP jacobian matrices using the finite differences method and parallel computation.
-    * The "bcError" function computes the boundary conditions residuals.
-    * The "Compute" function in the class "CtrModel" solves the BVP using the Gauss-Newton algorithm to compute the whole shape of the robot, along with (optionally) the robot Jacobian matrix and the compliance matrix.
-* Demonstation codes are located in the "demo" folder and show how to use the library in your own application.
-    * The demo "001_model_computation" is a simple example of how to compute the kineto-static model.
-    * The demo "002_control_line" is a simple control example, performing trajectory tracking of the end-effector in position along a straight line.
-    * The demo "003_timing_IVP" shows the model computation rate in different cases (loaded, loaded + jacobian matrix, loaded + jacobian and compliance matrices), and depending on the number of threads used.
-    * Additional demonstration codes will be provided soon to reproduce the results shown in our paper.
- 
+### 4) MPC with exact model as an IVP with augmented decision variables
+- Implemented and tested an MPC formulation where the exact CTCR model is handled as an **Initial Value Problem (IVP)**.
+- Included the **initial unknown variables** directly inside the MPC optimization problem as **decision variables**, enabling joint estimation/optimization when required.
+
+### 5) Minor performance and convergence improvements
+- Added small (modest) updates to some parts of the codebase to improve:
+  - **convergence** robustness
+  - **speed** of model computation
+
+
 ## Prerequisites
-This code has been tested on Ubuntu 20.04, Ubuntu 22.04, and Windows 10 using WSL2 with the Ubuntu 22.04 distribution. It will be tested for Windows with Visual Studio in the incoming code revision.
-* CMake
-* Eigen (version 3.4.0 is included in the repository)
-* Gnuplot and Boost are only used to plot the CTCR in the demonstrations. They can be removed if no plotting is required.
-
-(Linux) Install the following packages :  cmake build-essential libboost-all-dev gnuplot
+(Linux) Install the following packages: `cmake build-essential libboost-all-dev gnuplot`
 ```sh
 sudo apt install cmake build-essential libboost-all-dev gnuplot
 ```
@@ -63,11 +59,52 @@ Execute the demonstation code
 demo/001_model_computation
 ```
 
+---
+
+## 📦 Included Dependencies: CasADi & IPOPT
+
+This project bundles **prebuilt CasADi** (shared library + headers) and **prebuilt IPOPT** to simplify setup and distribution.  
+You do **not** need system‑wide installations of CasADi or IPOPT — the project builds out‑of‑the‑box using the versions included in the repository.
+
+### 🏗️ Build Environment for Prebuilt Libraries
+
+The bundled binaries were built on the following system:
+
+```
+Distributor ID: Ubuntu
+Description:    Ubuntu 24.04.3 LTS
+Release:        24.04
+```
+
+**Included versions:**
+
+| Library | Version |
+|--------|---------|
+| CasADi  | 3.7.2   |
+| IPOPT   | 3.11.9  |
+
+---
+
+## 🔧 Using Your Own CasADi/IPOPT Installation
+
+If you already have **CasADi** and **IPOPT** installed on your system and prefer to use those instead of the bundled binaries, you can switch easily.
+
+Just **uncomment the relevant sections** in the following CMake files:
+
+- `CMakeLists.txt` (project root)  
+- `demo/CMakeLists.txt`  
+- `ctcr_casadi_warpers/CMakeLists.txt`
+
+These sections configure the project to link against your system‑installed versions rather than the prebuilt ones.
+
+---
+
+## Upstream source
+Derived from: https://github.com/TIMClab-CAMI/Modeling-and-Control-of-Concentric-Tube-Continuum-Robots  
+Many thanks to the original authors for their high-performance exact CTCR model implementation.
+
 ## Licence
-This project is licensed under the GPL v3.0 License - see the [LICENSE](https://github.com/TIMClab-CAMI/Modeling-and-Control-of-Concentric-Tube-Continuum-Robots/blob/main/LICENSE) file for details
+This project is licensed under the **GNU GPL v3.0** (same as upstream). See the local [LICENSE](LICENSE) file.
 
 ## Contributing
 Feel free to submit pull requests and use the issue tracker to start a discussion about any bugs you encounter. Please provide detailed description of the versions of your operating system, tools, and libraries for any software related bugs.
-
-## Acknowledgements
-This work was supported by grants ANR-11-LABX-0004-01, ANR-21-ESRE-0015, ANR-17-CE19-0005, ANR-17-EURE-0002, and ANR-20-CE33-0001.

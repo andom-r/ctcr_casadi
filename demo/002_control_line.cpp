@@ -11,6 +11,8 @@ using namespace std::chrono;
 using namespace Eigen;
 using namespace CtrLib;
 
+std::vector<Eigen::Vector3d> generatePoints( const Eigen::Vector3d& P, const Eigen::Vector3d& Pdes, double dl);
+
 int main(int, char**){
   // Example 2 : Simple control scenario for a straight line
   //  (here the same CtrModel is used for both the simulation of the robot and the model running in the controller)
@@ -37,7 +39,7 @@ int main(int, char**){
   // Get end-effector position
   Vector3d P = ctr.GetP();
   // Set desired position as the current position +20 mm towards the +x direction and +20 mm towards the +y direction
-  Vector3d Pdes = P + Vector3d(20e-3, 20e-3, 0.0); 
+  Vector3d Pdes = P + Vector3d(-40e-3,-40e-3,0); 
 
   constexpr double dt = 0.025; // Time sampling for the simulation : 40 Hz / 25 ms
   // Control parameters from the parameter file
@@ -56,15 +58,21 @@ int main(int, char**){
   plotCtr(ctr.GetYTot(), ctr.segmented.iEnd, P.transpose());
   std::this_thread::sleep_for(1s); // wait for the plot to initialize
 
-  constexpr int logSize = 100; //should be enough
+  constexpr int logSize = 5000; //should be enough
   // trajectory log to display the simulated trajectory
   Matrix<double,logSize,3> logTraj = Matrix<double,logSize,3>::Zero();
+  Matrix<double,logSize,3> logTraj2 = Matrix<double,logSize,3>::Zero();
+  double dl = 1e-3;
+    // auto points = eigenToStdNestedVector(generatePoints(P, Pdes, dl));
+  auto points = generatePoints(P, Pdes, dl);
   int i = 0;
-
+    Eigen::Vector3d previousPosition = P; 
+    CtrLib::Vector_q previousQ = q;
+    int counter = 0;
   ///// Part III : Simulation loop
-  while((Pdes - P).norm() > epsilon){
+  while((Pdes - P).norm() > epsilon & counter<500){
     // Simple example without actuation constraints & obstacle avoidance (just v0,v1 & not v2,v3)
-
+    counter++;
     // Determine velocity for each task
     Vector_X X_prime_des; // Desired end-effector velocity
     X_prime_des(seqN(0,3)) = lambda * (Pdes - P) / dt;    // Tracking in translation
@@ -83,11 +91,21 @@ int main(int, char**){
       std::cout << "main()>> Error ! ctr.Compute() returned non-zero " << std::endl;
       return -1;
     }
+    std::cout<< "position error norm - current - previous: "<< (ctr.GetP() - previousPosition).norm() <<std::endl;
+    std::cout<< "calculated command: "<< q.transpose() <<std::endl;
+    std::cout<< "diff currentQ - previousQ: "<<( q - previousQ).transpose() <<std::endl;
     P = ctr.GetP();
-    
+    previousPosition = P;
+    previousQ = q;
+
     // Log and plot
+    int plotIndex = i;
+    if(i>points.size()-2) plotIndex = points.size()-2;
+    // if(i<points.size()-1) 
     logTraj(i,all) = P;
-    plotCtr(ctr.GetYTot(), ctr.segmented.iEnd, logTraj(seq(0,i),all));
+    if(i<points.size()-1) logTraj2(i,all) = points[i];
+    plotCtrWithTargetTrajectory(ctr.GetYTot(), ctr.segmented.iEnd, logTraj(seq(0,i),all),logTraj2(seq(0,plotIndex),all));
+    // plotCtr(ctr.GetYTot(), ctr.segmented.iEnd, logTraj(seq(0,i),all));
     i++;
 
     std::this_thread::sleep_for(50ms); // tempo for the animation
@@ -95,4 +113,38 @@ int main(int, char**){
   std::cout << "Press <ENTER> to exit. (This is to keep the plot interactive.)" << std::endl;
   std::cin.get();
   return 0;
+}
+
+
+std::vector<Eigen::Vector3d> generatePoints( const Eigen::Vector3d& P, const Eigen::Vector3d& Pdes, double dl)  { 
+    std::vector<Eigen::Vector3d> points;
+    // Direction vector
+    Eigen::Vector3d dir = Pdes - P;
+    double totalDist = dir.norm();
+
+    // Handle edge case: same point
+    if (totalDist < 1e-12) {
+        points.push_back(P);
+        return points;
+    }
+
+    // Normalize direction
+    Eigen::Vector3d unitDir = dir.normalized();
+
+    // Number of steps
+    int nSteps = static_cast<int>(std::floor(totalDist / dl));
+
+    points.reserve(nSteps + 2);
+
+    // Generate points
+    for (int i = 0; i <= nSteps; ++i) {
+        points.push_back(P + i * dl * unitDir);
+    }
+
+    // Ensure final destination is included
+    if ((points.back() - Pdes).norm() > 1e-12) {
+        points.push_back(Pdes);
+    }
+
+    return points;
 }

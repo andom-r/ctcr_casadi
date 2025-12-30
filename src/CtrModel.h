@@ -2,9 +2,11 @@
 #define CTR_MODEL_H
 #include "Eigen/Dense"
 #include "ctrConstants.h"
+#include "ComputeIvpJacobianMatrices.h"
 
 namespace CtrLib{
     struct parameters; // forward declaration (defined in "loadParameters.h")
+
     class CtrModel
     {
     public:
@@ -13,6 +15,13 @@ namespace CtrLib{
 
         //template <COMPUTATION_OPTION opt> 
         int Compute(const Vector_q &q, const computationOptions &opt); // Compute end-effector position
+
+        int ComputeIVP(
+            const Vector_q &argQ,
+            const Vector_yu0 &_yu0, 
+            const computationOptions &opt, 
+            SingleIVPOut &out
+        );
 
         const Vector_q GetOffset(){return offset;};
         const tubeParameters GetTubeParameters(){return tubes;};
@@ -23,6 +32,7 @@ namespace CtrLib{
         const Eigen::Matrix3d GetR(){return R;};
         const Matrix_J GetJ(){return J;};
         const Matrix_C GetC(){return C;};
+        const Vector_q GetQ(){return q;};
 
         void SetW(const Vector_w &_w){w = _w;};
 

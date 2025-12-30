@@ -23,7 +23,7 @@ namespace CtrLib{
     const Matrix_segmented &UUx  =  segmented.UUx;
     const int               nSeg =  segmented.iEnd(0) + 1;
 
-    
+    // # ??????????????????????????
     // For better convergence, the two first elements of the initial guess (yu0(0) and yu0(1)) are the sum of bending moments along x and y axis (at s=0)
     // But the ODEs are implemented using curvature along x and y axis as state variables
     double mx_0 = yu0(0);
@@ -39,7 +39,7 @@ namespace CtrLib{
 
     Vector<double, NB_SEGMENT_MAX + 1> span; span << 0,S;
     Vector3d r0 = Vector3d::Zero();
-
+    
     double alpha1_0 = alpha(0) - beta(0) * u1z_0;
     double alpha2_0 = alpha(1) - beta(1) * u2z_0;
     double alpha3_0 = alpha(2) - beta(2) * u3z_0;
@@ -57,8 +57,17 @@ namespace CtrLib{
     double K = KKxy(all,0).sum();
     double sum_x = KKxy(0,0)*UUx(0,0) + cos(t2_0)*KKxy(1,0)*UUx(1,0) + cos(t3_0)*KKxy(2,0)*UUx(2,0);
     double sum_y =                      sin(t2_0)*KKxy(1,0)*UUx(1,0) + sin(t3_0)*KKxy(2,0)*UUx(2,0); 
-    double u1x_0 = (mx_0 + sum_x) / K;
-    double u1y_0 = (my_0 + sum_y) / K;
+    double u1x_0 = yu0(0);
+    double u1y_0 = yu0(1);
+
+    // u1x_0 = (mx_0 + sum_x) / K;
+    // u1y_0 = (my_0 + sum_y) / K;
+
+    if(yu0(0) ==0){
+      u1x_0 = (mx_0 + sum_x) / K;
+    } if(yu0(1) ==0){
+      u1y_0 = (my_0 + sum_y) / K;
+    }
       
     Vector3d u1_0;
     u1_0 << u1x_0, u1y_0, u1z_0;
@@ -139,7 +148,8 @@ namespace CtrLib{
 
         // Sum of R_i * k_i * U_i after discontinuity
         Vector2d KU = k1 * U1 + R2*k2*U2 + R3*k3*U3;
-
+        
+        // # ?????????????????????????? 
         Matrix2d invK; invK << 1/K(0,0), 0, 0, 1/K(1,1);
         u1 = invK * (sumMomentsBefore + KU);
 

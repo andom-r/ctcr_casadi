@@ -24,9 +24,10 @@ namespace CtrLib{
     double L = sf - s0;
     constexpr int Nm1 = NB_INTEGRATION_NODES - 1;
 
-    //Classic 4th-order Runge-Kutta method
+    //Classic 4th-order Runge-Kutta method 
     Vector<double, NB_STATE_VAR> k0, k1, k2, k3;
     double s = s0;
+    
     for(int i = 0; i < Nm1; i++){
       odeCtr(s, y0, Kxy, Kz, Ux, w, k0);
       y0 += k0 * half_ds;

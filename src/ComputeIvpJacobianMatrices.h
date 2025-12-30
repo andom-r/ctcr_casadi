@@ -26,6 +26,12 @@ namespace CtrLib{
     Matrix_Bw   Bw;      // Output jacobian matrix Bw (delta_b/delta_w)
   };
 
+  struct SingleIVPOut{
+        Matrix_yTot yTot;    // Output state variables at each integration node associated with the "nominal" computation solveIVP(yu0,q,...)
+        Vector_bc   b;       // Output residuals of boundary conditions associated with the "nominal" computation solveIVP(yu0,q,...)
+        segmentedData segmentation;
+  };
+
   /**
   * @brief Compute  jacobian matrices using the IVP finite differences method
   * 
@@ -55,5 +61,14 @@ namespace CtrLib{
     uint nThread,
 
     ComputeIvpJacMatOut &out);
+
+  int ComputeSingleIVP( 
+    const Vector_q &q,
+    const Vector_yu0 &yu0,
+    const tubeParameters &tubes,
+    const Vector_w &w,
+    const computationOptions &opt,
+
+    SingleIVPOut &out);
 }
 #endif //IVP_FD_H

@@ -7,7 +7,8 @@
 #include "solveIVP.h"
 #include "bcError.h"
 #include "ctrConstants.h"
-
+#include "mathOperations.h"
+#include "se3Operations.h"
 #include <omp.h>
 
 using namespace Eigen;
@@ -48,11 +49,13 @@ namespace CtrLib{
     
     ComputeIvpJacMatOut &out)
   {
-    Matrix<double, 18, NB_Q> arrQ;
-    Matrix<double, 18, NB_YU0> arrYu0;
-    Matrix<double, 18, NB_W> arrW;
-    Vector<Matrix<double, 4, 4>, 18> arrG;
-    Matrix<double, 18, NB_BC> arrB;
+    // Number of partial derivatives
+    constexpr int NB_PaDer = NB_Q + NB_YU0 + NB_W + 1;
+    Matrix<double, NB_PaDer, NB_Q> arrQ;
+    Matrix<double, NB_PaDer, NB_YU0> arrYu0;
+    Matrix<double, NB_PaDer, NB_W> arrW;
+    Vector<Matrix<double, 4, 4>, NB_PaDer> arrG; // g matrix for the tip position and orientation for each partial derivative variable q..., w..., yu0...
+    Matrix<double, NB_PaDer, NB_BC> arrB;
 
     // i = 0 : nominal configuration
     arrQ(0,all) = q;
@@ -72,32 +75,34 @@ namespace CtrLib{
     constexpr double epsilon_q = 1e-3;
     if(opt == LOAD_J || opt == LOAD_J_C){
       // 6 <= i <= 11 : q finite diff
+      constexpr int sIndex = NB_YU0 + 1;
       for(int i = 0; i < NB_Q; i++){
-        arrYu0(6 + i,all) = yu0; // nominal value for yu0
-        arrW(6 + i,all) = w;  // nominal value for w
+        arrYu0(sIndex + i,all) = yu0; // nominal value for yu0
+        arrW(sIndex + i,all) = w;  // nominal value for w
         Vector_q qi = q;
         qi(i) = q(i) + epsilon_q;
-        arrQ(6 + i,all) = qi;
+        arrQ(sIndex + i,all) = qi;
       }
     }
     
     constexpr double epsilon_f = 1e-3;
     constexpr double epsilon_l = 1e-4;
     if(opt == LOAD_J_C){
+      constexpr int sIndex = NB_Q + NB_YU0 + 1;
       // 12 <= i <= 14 : f finite diff
       for(int i = 0; i < 3; i++){
-        arrYu0(12 + i,all) = yu0; // nominal value for yu0
-        arrQ(12 + i,all) = q;    // nominal value for q
+        arrYu0(sIndex + i,all) = yu0; // nominal value for yu0
+        arrQ(sIndex + i,all) = q;    // nominal value for q
         Vector<double,NB_W> wi = w;
         wi(i) = w(i) + epsilon_f;
-        arrW(12 + i,all) = wi;
+        arrW(sIndex + i,all) = wi;
       }
       for(int i = 3; i < 6; i++){
-        arrYu0(12 + i,all) = yu0; // nominal value for yu0
-        arrQ(12 + i,all) = q;    // nominal value for q
+        arrYu0(sIndex + i,all) = yu0; // nominal value for yu0
+        arrQ(sIndex + i,all) = q;    // nominal value for q
         Vector<double,NB_W> wi = w;
         wi(i) = w(i) + epsilon_l;
-        arrW(12 + i,all) = wi;
+        arrW(sIndex + i,all) = wi;
       }
     }
 
@@ -165,11 +170,13 @@ namespace CtrLib{
 
       Matrix<double,4,4> gi = arrG(1 +i);
       Matrix4d temp = (g0_inv * (gi - g0)) / epsilon_yu0;
+      // Matrix4d temp = finiteDifference(g0,gi,epsilon_yu0);
       // Convert from se(3) to R^6 (apply vee operator)
-      out.Eu(seq(0,2),i) = temp(seq(0,2),3);                                   
-      out.Eu(3,i) = 0.5 * (temp(2,1) - temp(1,2));
-      out.Eu(4,i) = 0.5 * (temp(0,2) - temp(2,0));
-      out.Eu(5,i) = 0.5 * (temp(1,0) - temp(0,1));
+      // out.Eu(seq(0,2),i) = temp(seq(0,2),3);                                   
+      // out.Eu(3,i) = 0.5 * (temp(2,1) - temp(1,2));
+      // out.Eu(4,i) = 0.5 * (temp(0,2) - temp(2,0));
+      // out.Eu(5,i) = 0.5 * (temp(1,0) - temp(0,1));
+      out.Eu(seq(0,6),i) = se3Vee(temp);
 
       Vector_bc bi = arrB(1 + i,all);
 
@@ -179,11 +186,13 @@ namespace CtrLib{
       for (int i = 0; i < NB_Q; i++){
         Matrix<double,4,4> gi = arrG(6 + i);
         Matrix4d temp = (g0_inv * (gi - g0)) / epsilon_q;
+        // Matrix4d temp = finiteDifference(g0,gi,epsilon_q);
         // Convert from se(3) to R^6 (apply vee operator)
-        out.Eq(seq(0,2),i) = temp(seq(0,2),3);
-        out.Eq(3,i) = 0.5 * (temp(2,1) - temp(1,2));
-        out.Eq(4,i) = 0.5 * (temp(0,2) - temp(2,0));
-        out.Eq(5,i) = 0.5 * (temp(1,0) - temp(0,1));
+        // out.Eq(seq(0,2),i) = temp(seq(0,2),3);
+        // out.Eq(3,i) = 0.5 * (temp(2,1) - temp(1,2));
+        // out.Eq(4,i) = 0.5 * (temp(0,2) - temp(2,0));
+        // out.Eq(5,i) = 0.5 * (temp(1,0) - temp(0,1));
+        out.Eq(seq(0,6),i) = se3Vee(temp);
 
         Vector_bc bi = arrB(6 + i,all);
         out.Bq(all,i) = (bi - out.b) / epsilon_q;
@@ -193,11 +202,13 @@ namespace CtrLib{
       for (int i = 0; i < 3; i++){
         Matrix<double,4,4> gi = arrG(12 + i);
         Matrix4d temp = (g0_inv * (gi - g0)) / epsilon_f;
+        // Matrix4d temp = finiteDifference(g0,gi,epsilon_f);
         // Convert from se(3) to R^6 (apply vee operator)
-        out.Ew(seq(0,2),i) = temp(seq(0,2),3);
-        out.Ew(3,i) = 0.5 * (temp(2,1) - temp(1,2));
-        out.Ew(4,i) = 0.5 * (temp(0,2) - temp(2,0));
-        out.Ew(5,i) = 0.5 * (temp(1,0) - temp(0,1));
+        // out.Ew(seq(0,2),i) = temp(seq(0,2),3);
+        // out.Ew(3,i) = 0.5 * (temp(2,1) - temp(1,2));
+        // out.Ew(4,i) = 0.5 * (temp(0,2) - temp(2,0));
+        // out.Ew(5,i) = 0.5 * (temp(1,0) - temp(0,1));
+        out.Ew(seq(0,6),i) = se3Vee(temp);
 
         Vector_bc bi = arrB(12 + i,all);
         out.Bw(all,i) = (bi - out.b) / epsilon_f;
@@ -205,11 +216,13 @@ namespace CtrLib{
       for (int i = 3; i < 6; i++){
         Matrix<double,4,4> gi = arrG(12 + i);
         Matrix4d temp = (g0_inv * (gi - g0)) / epsilon_l;
+        // Matrix4d temp = finiteDifference(g0,gi,epsilon_l);
         // Convert from se(3) to R^6 (apply vee operator)
-        out.Ew(seq(0,2),i) = temp(seq(0,2),3);
-        out.Ew(3,i) = 0.5 * (temp(2,1) - temp(1,2));
-        out.Ew(4,i) = 0.5 * (temp(0,2) - temp(2,0));
-        out.Ew(5,i) = 0.5 * (temp(1,0) - temp(0,1));
+        // out.Ew(seq(0,2),i) = temp(seq(0,2),3);
+        // out.Ew(3,i) = 0.5 * (temp(2,1) - temp(1,2));
+        // out.Ew(4,i) = 0.5 * (temp(0,2) - temp(2,0));
+        // out.Ew(5,i) = 0.5 * (temp(1,0) - temp(0,1));
+        out.Ew(seq(0,6),i) = se3Vee(temp);
 
         Vector_bc bi = arrB(12 + i,all);
         out.Bw(all,i) = (bi - out.b) / epsilon_l;
@@ -245,4 +258,32 @@ namespace CtrLib{
     uint nThread,
 
     ComputeIvpJacMatOut &out);
+
+
+  int ComputeSingleIVP( 
+    const Vector_q &q,
+    const Vector_yu0 &yu0,
+    const tubeParameters &tubes,
+    const Vector_w &w,
+    const computationOptions &opt,
+
+    SingleIVPOut &out){
+
+      segmentedData segmented_out;
+      if(segmenting(q, tubes, segmented_out)!=0){
+          PRINT_DEBUG_MSG("ComputeIvpJacobianMatrices()>> segmenting returned non-zero !");
+          return -1;
+      }
+      out.segmentation = segmented_out;
+
+      Matrix_yTot yTot;
+      solveIVP(yu0, q, segmented_out, w, yTot);
+      out.yTot = yTot;
+
+      Vector_bc b = bcError(yTot, tubes, segmented_out.iEnd, w);
+      out.b = b;
+
+      return 0;
+
+    }
 }

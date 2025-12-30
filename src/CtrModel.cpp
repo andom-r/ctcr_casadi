@@ -43,6 +43,13 @@ namespace CtrLib{
       w << p.force , p.moment;  // external wrench applied at the end-effector
       yu0 = Vector<double, NB_YU0>::Zero();
 
+      // yu0 << 6.46472e-17,
+      //     -5.26857e-17,
+      //     1.15861e-20,
+      //     1.12029e-16,
+      //     -3.10199e-17;
+        
+
       // Compute the model for the initial configuration to initialize yu0, X, J and C.
       if(Compute(q, opt_LOAD_J_C) < 0){
         throw std::runtime_error("CtrModel constructor failed ! Compute() returned non-zero !");
@@ -54,6 +61,8 @@ namespace CtrLib{
   }
   
   int CtrModel::Compute(const Vector_q &argQ, const computationOptions &opt){
+    
+    // std::cout << "Call of ctr.Compute() " << std::endl;
 
     if(!opt.isExternalLoads){
       throw std::invalid_argument("CtrModel::Compute() >> Error ! Unloaded model is not implemented yet");
@@ -64,12 +73,14 @@ namespace CtrLib{
 
       int nbIteration = 0;
       q = argQ;
+      // la la la la
+      // yu0 = Vector<double, NB_YU0>::Zero();
       Vector_yu0 yu0_tilde = yu0;
 
       ComputeIvpJacMatOut out;
 
       int nIter = 0;
-      
+      // #
       // first iteration without J and/or C, just to compute the BC residuals and the Bu matrix
       if(ComputeIvpJacobianMatrices(q,yu0_tilde,tubes,w, opt, out) != 0){
         PRINT_DEBUG_MSG("CtrModel::Compute()>> ComputeIvpJacobianMatrices() returned non-zero !");
@@ -139,4 +150,39 @@ namespace CtrLib{
 
     return nbIteration;
   }
+
+
+  int CtrModel::ComputeIVP(const Vector_q &argQ,const Vector_yu0 &_yu0, const computationOptions &opt, SingleIVPOut &out ){
+    
+    // std::cout << "Call of ctr.Compute() " << std::endl;
+
+    if(!opt.isExternalLoads){
+      throw std::invalid_argument("CtrModel::Compute() >> Error ! Unloaded model is not implemented yet");
+    }
+    if(opt.isComputeCompliance && !opt.isExternalLoads){
+      throw std::invalid_argument("CtrModel::Compute() >> Error ! Computation of the compliance matrix requires to use the loaded model !");
+    }
+
+      q = argQ;
+      // yu0 = Vector<double, NB_YU0>::Zero();
+      // Vector_yu0 yu0_tilde = _yu0;      
+
+      yu0 = _yu0;
+
+      if(ComputeSingleIVP(q,_yu0,tubes,w, opt, out)<0){
+        std::cout<< "compute ivp returned none zero"<< std::endl;
+        return -1;
+      };
+      segmented = out.segmentation;
+
+      yTot = out.yTot;
+      P = getPFromYtot(out.yTot,segmented);
+      R = getRFromYtot(out.yTot,segmented);
+      // Matrix<double,6,6> RR = Matrix<double,6,6>::Zero();
+      // RR(seq(0,2),seq(0,2)) = R;
+      // RR(seq(3,5),seq(3,5)) = R;
+
+    return 0;
+  }
+
 }
