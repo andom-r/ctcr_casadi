@@ -39,7 +39,7 @@ int main(int, char**){
   // Get end-effector position
   Vector3d P = ctr.GetP();
   // Set desired position as the current position +20 mm towards the +x direction and +20 mm towards the +y direction
-  Vector3d Pdes = P + Vector3d(-40e-3,-40e-3,0); 
+  Vector3d Pdes = P + Vector3d(-40e-3,0,0); 
 
   constexpr double dt = 0.025; // Time sampling for the simulation : 40 Hz / 25 ms
   // Control parameters from the parameter file

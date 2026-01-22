@@ -7,7 +7,7 @@
 #include "pinv.h"
 #include "plotCtr.h"
 #include <casadi/casadi.hpp>
-#include <BlackboxConstr.hpp>
+#include <BlackboxConstrYu0.hpp>
 
 using namespace std::chrono;
 using namespace Eigen;
@@ -21,31 +21,37 @@ std::vector<std::vector<double>> eigenToStdNestedVector(const Eigen::Vector3d& m
 
 int nx = NB_X - 3;
 int nu = NB_Q;
-int NPred  = 1;
+int NPred  = 2;
 
 struct MpcConfig {
     int N = NPred;
     int nx = 3;
     int nu = 6;
-
-    double dl = 4e-5;
+    int nbStageUConstr = nu + 2;// + 2; // input rate limit, 1 pos rate limit, 1 pos error limit  
+    
+    double dl = 5e-4;
+    // double dl = 1e-4;
     double betweenTubeBaseMargin = 1e-5;
 
-    double inputTranslationVariationLimit = 2.8e-4;
-    double inputRotationVariationLimit    = 2.8e-4;
+    double inputTranslationVariationLimit =2e-3;
+    double inputRotationVariationLimit    =1e-2;
 
-    double Q_scale = 1e7;
-    double R_scale = 1e7;
+    // double inputTranslationVariationLimit =2e-4;
+    // double inputRotationVariationLimit    =4e-3;
+    double dxLimit        = dl*2000.5;
+    double xErrorLimit    = 10e+1;
+
+    double Q_scale = 1e3;
+    double R_scale = 0*5e-2;
 };
 
 struct MpcProblem {
-    std::shared_ptr<BlackboxConstr> blackboxConstr;  // keep callback alive
+    std::shared_ptr<BlackboxConstrYu0> blackboxConstr;  // keep callback alive
     casadi::Function bb_fun;             
     casadi::Function solver;
 
     int n_dec = 0;
     int ng = 0;
-    int nbStageUConstr = 0; // = 2 + nu
 
     casadi::DM lbx, ubx;
     casadi::DM lbg, ubg;
@@ -81,10 +87,13 @@ int main(int, char **) {
 static casadi::MX makeBlockDiagR(int nu, double scale) {
     // TODO... guard for later
     if (nu != 6) {
-        return scale * 0.1 * casadi::MX::eye(nu);
+        return scale * casadi::MX::eye(nu);
     }
-    casadi::MX R1 = scale * 0.1 * casadi::MX::eye(3);
-    casadi::MX R2 = scale * 0.1 * casadi::MX::eye(3);
+    casadi::MX R1 = scale * casadi::MX::eye(3);
+    R1(0,0) = -0.00008*R1(0,0);
+    R1(1,1) = -0.00005*R1(1,1);
+    R1(2,2) = -0.00002*R1(2,2);
+    casadi::MX R2 = 2.4 * scale * casadi::MX::eye(3);
     return casadi::MX::diagcat({R1, R2});
 }
 
@@ -114,15 +123,18 @@ static void applyInputBounds(CtrModel& ctr, const MpcConfig& cfg, MpcProblem& pb
 
         // We only bounded translations (0..2)
         if (nu >= 3) {
-            pb.lbx(idx + 0) = -ctr.GetTubeParameters().l(0);
-            pb.lbx(idx + 1) = -ctr.GetTubeParameters().l(1);
-            pb.lbx(idx + 2) = -ctr.GetTubeParameters().l(2) + 3 * cfg.betweenTubeBaseMargin;
+            pb.lbx(idx + 0) = -ctr.GetTubeParameters().l(0) + ctr.GetTubeParameters().l(1) + 1 * cfg.betweenTubeBaseMargin;
+            pb.lbx(idx + 1) = -ctr.GetTubeParameters().l(1) + ctr.GetTubeParameters().l(2) + 1 * cfg.betweenTubeBaseMargin;
+            pb.lbx(idx + 2) = -ctr.GetTubeParameters().l(2) + 1 * cfg.betweenTubeBaseMargin;
 
-            pb.ubx(idx + 0) = -3 * cfg.betweenTubeBaseMargin;
-            pb.ubx(idx + 1) = -2 * cfg.betweenTubeBaseMargin;
+            pb.ubx(idx + 0) = -cfg.betweenTubeBaseMargin;
+            pb.ubx(idx + 1) = -cfg.betweenTubeBaseMargin;
             pb.ubx(idx + 2) = -1 * cfg.betweenTubeBaseMargin;
         }
     }
+
+    std::cout << "lbx: " << pb.lbx << std::endl;
+    std::cout << "ubx: " << pb.ubx << std::endl;
 }
 
 static void applyStageConstraintsBounds(CtrModel& ctr, const MpcConfig& cfg, MpcProblem& pb) {
@@ -130,26 +142,27 @@ static void applyStageConstraintsBounds(CtrModel& ctr, const MpcConfig& cfg, Mpc
     const int nu = cfg.nu;
 
     // Per-stage: 2 tube-ordering constraints + nu uDiff constraints
-    pb.nbStageUConstr = 2 + nu;
+    // pb.nbStageUConstr = 2 + nu;
 
     for (int i = 0; i < N; ++i) {
-        const int stage = i * pb.nbStageUConstr;
-
-        // (-u0 + u1) bounds
-        pb.ubg(stage + 0) = ctr.GetTubeParameters().l(0) - ctr.GetTubeParameters().l(1) - 3 * cfg.betweenTubeBaseMargin;
-        pb.lbg(stage + 0) = 1 * cfg.betweenTubeBaseMargin;
-
-        // (-u1 + u2) bounds
-        pb.ubg(stage + 1) = ctr.GetTubeParameters().l(1) - ctr.GetTubeParameters().l(2) - 3 * cfg.betweenTubeBaseMargin;
-        pb.lbg(stage + 1) = 1 * cfg.betweenTubeBaseMargin;
+        const int stage = i * cfg.nbStageUConstr;
 
         // uDiff(0..nu-1) variation limits
         for (int j = 0; j < nu; ++j) {
             const double lim = (j < 3) ? cfg.inputTranslationVariationLimit : cfg.inputRotationVariationLimit;
-            pb.ubg(stage + 2 + j) =  lim;
-            pb.lbg(stage + 2 + j) = -lim;
+            pb.ubg(stage + j) =  lim;
+            pb.lbg(stage + j) = -lim;
         }
+
+        int idx = stage + cfg.nu;
+        pb.ubg(idx + 0) =  cfg.dxLimit;
+        pb.lbg(idx + 0) = 0;        // dxLimit/5;
+        pb.ubg(idx + 1) =  cfg.xErrorLimit;
+        pb.lbg(idx + 1) =  0;
     }
+
+    std::cout << "lbg: " << pb.lbg << std::endl;
+    std::cout << "ubg: " << pb.ubg << std::endl;
 }
 
 static void warmStartFromSolution(
@@ -174,15 +187,15 @@ static void warmStartFromSolution(
     }
 
     // Shift X guess forward by one step X_guess[k] = X_sol[k+1] for k=0..N-1 and repeat last
-    for (int k = 0; k < N; ++k) {
-        for (int i = 0; i < nx; ++i) {
-            x0_guess(k * nx + i) = Xall((k + 1) * nx + i);
-        }
-    }
-    // Last state guess repeats last state
-    for (int i = 0; i < nx; ++i) {
-        x0_guess(N * nx + i) = Xall(N * nx + i);
-    }
+    // for (int k = 0; k < N; ++k) {
+    //     for (int i = 0; i < nx; ++i) {
+    //         x0_guess(k * nx + i) = Xall((k + 1) * nx + i);
+    //     }
+    // }
+    // // Last state guess repeats last state
+    // for (int i = 0; i < nx; ++i) {
+    //     x0_guess(N * nx + i) = Xall(N * nx + i);
+    // }
 }
 
 static MpcProblem buildMpcProblem(CtrModel& ctr, const MpcConfig& cfg) {
@@ -204,8 +217,8 @@ static MpcProblem buildMpcProblem(CtrModel& ctr, const MpcConfig& cfg) {
     casadi::MX R = makeBlockDiagR(nu, cfg.R_scale);
 
     casadi::MX obj = 0;
-    std::vector<casadi::MX> g;   g.reserve(N + 1);
-    std::vector<casadi::MX> gu;  gu.reserve(N * (2 + nu));
+    std::vector<casadi::MX> g;  // g.reserve((N + 1) * cfg.nx);
+    std::vector<casadi::MX> gu; // gu.reserve(N * (cfg.nbStageUConstr));
 
     // Initial condition constraint
     g.push_back(X(casadi::Slice(), 0) - x0);
@@ -216,30 +229,36 @@ static MpcProblem buildMpcProblem(CtrModel& ctr, const MpcConfig& cfg) {
         casadi::MX xdk = Xd(casadi::Slice(), k);
         casadi::MX uk  = U(casadi::Slice(), k);
 
+        casadi::MX dx= (xk - X(casadi::Slice(), k)); // for position rate constraint
         casadi::MX xDiff = (xk - xdk);
 
         casadi::MX uDiff;
-        if (k == 0) uDiff = (u0 - uk);
-        else        uDiff = (U(casadi::Slice(), k - 1) - uk);
+        if (k == 0) uDiff = (uk - u0);
+        else        uDiff = uk - (U(casadi::Slice(), k - 1));
 
         casadi::MX xQX = casadi::MX::mtimes(xDiff.T(), casadi::MX::mtimes(Q, xDiff));
 
         // objective
-        obj += casadi::MX::exp((xQX / 1e3 + 10));
-        obj += -casadi::MX::mtimes(uDiff.T(), casadi::MX::mtimes(0.1 * R, uDiff))
-             * (1 - casadi::MX::sin(xQX / 1e2) * casadi::MX::sin(xQX / 1e2));
-
-        // Tube ordering constraints
-        gu.push_back(-uk(0) + uk(1));
-        gu.push_back(-uk(1) + uk(2));
+        obj += xQX;
+        obj += casadi::MX::mtimes(uDiff.T(), casadi::MX::mtimes(R, uDiff));
+        // obj += casadi::MX::exp((xQX / 1e3 + 10));
+        // obj += -casadi::MX::mtimes(uDiff.T(), casadi::MX::mtimes(0.1 * R, uDiff))
+        //      * (1 - casadi::MX::sin(xQX / 1e2) * casadi::MX::sin(xQX / 1e2));
 
         // Input variation constraints: push each element of uDiff
-        for (int j = 0; j < nu; ++j) gu.push_back(uDiff(j));
+        // for (int j = 0; j < nu; ++j) gu.push_back(uDiff(j));
+        gu.push_back(uDiff(0) + uDiff(1) + uDiff(2));
+        gu.push_back(uDiff(1) + uDiff(2));
+        gu.push_back(uDiff(2));
+        for (int j = 3; j < nu; ++j) gu.push_back(uDiff(j));
+
+        gu.push_back(casadi::MX::norm_2(dx));
+        gu.push_back(casadi::MX::norm_2(xDiff));
     }
 
     // Blackbox dynamics constraints
-    // BlackboxConstr f_blackbox("bb_constr", &ctr, nx, nu, opt_LOAD);
-    pb.blackboxConstr = std::make_shared<BlackboxConstr>("bb_constr", &ctr, cfg.nx, cfg.nu, opt_LOAD);
+    // BlackboxConstrYu0 f_blackbox("bb_constr", &ctr, nx, nu, opt_LOAD);
+    pb.blackboxConstr = std::make_shared<BlackboxConstrYu0>("bb_constr", &ctr, cfg.nx, cfg.nu, opt_LOAD);
     pb.bb_fun = pb.blackboxConstr->factory(
         "bb_fun",
         {"u"},
@@ -253,6 +272,20 @@ static MpcProblem buildMpcProblem(CtrModel& ctr, const MpcConfig& cfg) {
 
     for (int k = 0; k < N; ++k) {
         std::vector<casadi::MX> args = {U(casadi::Slice(), k)};
+        // extract the k‑th column as an MX vector
+        // casadi::MX u = U(casadi::Slice(), k);
+
+        // casadi::MX args = u;
+        // build argument vector
+        // casadi::MX args = casadi::MX::vertcat({
+        //     u(0) + u(1) + u(2),
+        //     u(1) + u(2),
+        //     u(2),
+        //     u(3),// - u(4),
+        //     u(4),// - u(5),
+        //     u(5)
+        // }); // shape (6,1)
+
         g.push_back(X(casadi::Slice(), k + 1) - pb.bb_fun(args)[0]);
     }
 
@@ -279,11 +312,16 @@ static MpcProblem buildMpcProblem(CtrModel& ctr, const MpcConfig& cfg) {
     // Solver options
     casadi::Dict opts;
     opts["expand"] = false;
-    opts["ipopt.hessian_approximation"]   = "limited-memory";
-    opts["ipopt.derivative_test"]         = "none";
-    opts["ipopt.print_level"]             = 0;
-    opts["print_time"]                    = false;
-    opts["ipopt.jacobian_approximation"]  = "finite-difference-values";
+    opts["ipopt.hessian_approximation"]         = "limited-memory";
+    opts["ipopt.derivative_test"]               = "none";
+    opts["ipopt.print_level"]                   = 0;
+    opts["print_time"]                          = false;
+    opts["ipopt.jacobian_approximation"]        = "finite-difference-values";
+    opts["ipopt.acceptable_iter"]               = 0;
+    opts["ipopt.constr_viol_tol"]               = 1e-8;
+    opts["ipopt.acceptable_constr_viol_tol"]    = 1e-8;
+    opts["ipopt.bound_relax_factor"]            = 0;
+    opts["ipopt.honor_original_bounds"]         = "yes";
 
     pb.solver = casadi::nlpsol("solver", "ipopt", nlp, opts);
 
@@ -294,7 +332,7 @@ static MpcProblem buildMpcProblem(CtrModel& ctr, const MpcConfig& cfg) {
     pb.ubx =  casadi::DM::inf(pb.n_dec);
 
     // ng = |gu| + |g|*nx (each g item is nx-dim)
-    pb.nbStageUConstr = 2 + nu;
+    // pb.nbStageUConstr = 2 + nu;
     pb.ng = (int)gu.size() + (int)g.size() * nx;
 
     pb.lbg = casadi::DM::zeros(pb.ng);
@@ -317,8 +355,10 @@ int test_casadi_mpc() {
 
     CtrModel ctr(pNominal);
 
-    Vector_q q(-0.3, -0.2, -0.1, 0.0, 0.0, 0.0);
-    if (ctr.Compute(q, opt_LOAD) < 0) {
+    Vector_q _q(-0.3, -0.2, -0.1, 0.0, 0.0, 0.0);
+    // Transformed vars
+    Vector_q q(-0.1, -0.1, -0.1, 0.0, 0.0, 0.0);
+    if (ctr.Compute(_q, opt_LOAD) < 0) {
         std::cout << "Error: ctr.Compute() failed\n";
         return -1;
     }
@@ -327,7 +367,7 @@ int test_casadi_mpc() {
     MpcConfig cfg;
 
     Eigen::Vector3d P = ctr.GetP();
-    Eigen::Vector3d Pdes = P + Eigen::Vector3d(-40e-3, -40e-3, 0);
+    Eigen::Vector3d Pdes = P + Eigen::Vector3d(20e-3,0,0);
 
     Eigen::Matrix<double, 1, 3> Pr = P.transpose(); // 1x3
     CtrLib::plotCtrWithTargetTrajectory(ctr.GetYTot(), ctr.segmented.iEnd, Pr, Pr);
@@ -336,6 +376,8 @@ int test_casadi_mpc() {
     constexpr int logSize = 6000;
     Eigen::Matrix<double, Eigen::Dynamic, Eigen::Dynamic> logTraj(logSize, 3);
     Eigen::Matrix<double, Eigen::Dynamic, Eigen::Dynamic> targetTraj(logSize, 3);
+    Eigen::Matrix<double, Eigen::Dynamic, Eigen::Dynamic> pointSolveTime(logSize, 2);
+    Eigen::Matrix<double, Eigen::Dynamic, Eigen::Dynamic> inputsLog(logSize, nu);
     logTraj(0, all)   = P;
     targetTraj(0, all)= P;
 
@@ -350,13 +392,13 @@ int test_casadi_mpc() {
 
     // U initial guess
     for (int i = 0; i < cfg.nu * cfg.N; ++i) {
-        x0_guess(uOff + i) = q(i % cfg.nu) + std::floor((double)i / cfg.nu) * 5e-2 * q(i % cfg.nu);
+        x0_guess(uOff + i) = q(i % cfg.nu);// + std::floor((double)i / cfg.nu) * 5e-2 * q(i % cfg.nu);
     }
     // X initial guess from the straight-line points
     for (int i = 0; i < cfg.N + 1; ++i) {
         x0_guess(i * cfg.nx + 0) = points[i][0];
-        x0_guess(i * cfg.nx + 1) = points[i][0];
-        x0_guess(i * cfg.nx + 2) = points[i][0];
+        x0_guess(i * cfg.nx + 1) = points[i][1];
+        x0_guess(i * cfg.nx + 2) = points[i][2];
     }
 
     // Parameters p = [x0; Xd_flat; u0]
@@ -378,6 +420,21 @@ int test_casadi_mpc() {
         casadi::DM(u0_std)   // previous input (nu)
     });
 
+    // logs
+    double sequareErrorSumPos = 0.0;   // sum of squared errors (||P - Pdes||^2)
+    long   sampleCount  = 0;            // number of samples accumulated
+
+    std::ofstream csv("exact_log.csv");              // or std::ios::app to append
+    csv << "iter;Px;Py;Pz;Target x;Target y;Target z; Start solving time ms; Duration ms; d0; d1; d3; phi0; phi1; phi2\n";
+    csv << std::setprecision(16);                   // keep numeric precision
+
+    auto t0Start = std::chrono::high_resolution_clock::now();
+    auto tStart = std::chrono::high_resolution_clock::now();
+    auto tEnd = std::chrono::high_resolution_clock::now();
+    pointSolveTime(0,0) = 0;
+    pointSolveTime(0,1) = 0;
+    inputsLog(0,all) = q;
+
     // ===================== Control loop =====================
     long convergenceIndex = 0;
     constexpr double epsilon = 0.1e-4;
@@ -394,7 +451,16 @@ int test_casadi_mpc() {
 
         // while but capped by convergenceIndex<1
         while (((pDesEigen - P).norm() > epsilon) && convergenceIndex < 1) {
+            tStart = std::chrono::high_resolution_clock::now();
+
             auto res = pb.solver(arg);
+
+            tEnd = std::chrono::high_resolution_clock::now();
+            double tStartMs = std::chrono::duration<double, std::milli>( tStart - t0Start ).count();
+            auto stepSolveTimeMs = std::chrono::duration<double, std::milli>(tEnd - tStart).count();
+            pointSolveTime(plotIteration + 1,0) = tStartMs;
+            pointSolveTime(plotIteration + 1,1) = stepSolveTimeMs;
+
             casadi::DM sol = res.at("x");
 
             const int jok = 1; // <= N
@@ -411,13 +477,32 @@ int test_casadi_mpc() {
 
             // Apply input to CTR to update P
             std::vector<double> UcV = Uc.nonzeros();
-            Eigen::Map<Eigen::VectorXd> UcEigen(UcV.data(), (int)UcV.size());
+            // Eigen::Map<Eigen::VectorXd> UcEigen(UcV.data(), (int)UcV.size());
+            // UcEigen.row(2) = UcEigen.row(2);
+            // UcEigen.row(1) = UcEigen.row(1) + UcEigen.row(2);
+            // UcEigen.row(0) = UcEigen.row(0) + UcEigen.row(1) + UcEigen.row(2);
+            
+            // recover originl inputs
+            Eigen::VectorXd UcEigen(nu);
+            UcEigen << UcV[0] + UcV[1] + UcV[2],
+                    UcV[1] + UcV[2],
+                    UcV[2], 
+                    UcV[3],// - UcV[4] ,
+                    UcV[4],// - UcV[5],
+                    UcV[5];
+                    
             ctr.Compute(UcEigen, opt_LOAD);
             P = ctr.GetP();
 
             // Logging + plotting
             logTraj(plotIteration + 1, all)    = P;
             targetTraj(plotIteration + 1, all) = pDesEigen;
+
+            inputsLog(plotIteration + 1,all) = UcEigen;
+
+            const Eigen::Vector3d e = (P - pDesEigen);
+            sequareErrorSumPos += e.squaredNorm();
+            ++sampleCount;
 
             // reconstruct predicted X for plotting
             casadi::DM Xall = sol(casadi::Slice(0, cfg.nx * (cfg.N + 1)));
@@ -439,13 +524,30 @@ int test_casadi_mpc() {
 
 
             ++convergenceIndex;
-            std::this_thread::sleep_for(1ms);
+            // std::this_thread::sleep_for(1ms);
         }
 
-        ++plotIteration;
-        convergenceIndex = 0;
-        pDesEigen = points[j + 1]; // next target point
+    ++plotIteration;
+    convergenceIndex = 0;
+    pDesEigen = points[j + 1]; // next target point
     }
+
+        if (sampleCount > 0) {
+        const double rmse = std::sqrt(sequareErrorSumPos / sampleCount);
+        std::cout << "RMSE (position): " << rmse *1000 << " mm" <<"\n";
+        std::cout << "Sample count: " << sampleCount <<"\n";
+    }
+
+    for(int i = 0; i< plotIteration;i++){
+        csv << (i) << ";"
+        << logTraj(i,0) << ";" << logTraj(i,1) << ";" << logTraj(i,2) << ";"
+        << targetTraj(i,0) << ";" << targetTraj(i,1) << ";" << targetTraj(i,2)  << ";"
+        << pointSolveTime(i,0) <<";"<< pointSolveTime(i,1)<< ";"
+        << inputsLog(i,0) << ";" << inputsLog(i,1) << ";" << inputsLog(i,2)  << ";"
+        << inputsLog(i,3) << ";" << inputsLog(i,4) << ";" << inputsLog(i,5)  << ";"
+        << "\n";
+    }
+    csv.close();
 
     std::cout << "Final desired point:\n" << Pdes << "\n";
     return 0;

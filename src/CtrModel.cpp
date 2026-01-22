@@ -37,7 +37,7 @@ namespace CtrLib{
       offset(seqN(NB_TUBES, NB_TUBES)) *= pi / 180.0; // convert rotational offset from degree to radian
 
       // Set arbitrary initial configuration close to the "fully deployed" configuration with a small margin between each tube base
-      constexpr double margin = 5e-3; 
+      constexpr double margin = 5e-3 ; 
       q = offset + Vector_q(-3.0 * margin, -2.0 * margin, -margin, 0.0, 0.0, 0.0);
 
       w << p.force , p.moment;  // external wrench applied at the end-effector
