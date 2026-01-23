@@ -7,7 +7,7 @@
 #include "pinv.h"
 #include "plotCtr.h"
 #include <casadi/casadi.hpp>
-#include <BlackboxConstrYu0.hpp>
+#include <BlackboxConstr.hpp>
 
 using namespace std::chrono;
 using namespace Eigen;
@@ -46,7 +46,7 @@ struct MpcConfig {
 };
 
 struct MpcProblem {
-    std::shared_ptr<BlackboxConstrYu0> blackboxConstr;  // keep callback alive
+    std::shared_ptr<BlackboxConstr> blackboxConstr;  // keep callback alive
     casadi::Function bb_fun;             
     casadi::Function solver;
 
@@ -257,8 +257,8 @@ static MpcProblem buildMpcProblem(CtrModel& ctr, const MpcConfig& cfg) {
     }
 
     // Blackbox dynamics constraints
-    // BlackboxConstrYu0 f_blackbox("bb_constr", &ctr, nx, nu, opt_LOAD);
-    pb.blackboxConstr = std::make_shared<BlackboxConstrYu0>("bb_constr", &ctr, cfg.nx, cfg.nu, opt_LOAD);
+    // BlackboxConstr f_blackbox("bb_constr", &ctr, nx, nu, opt_LOAD);
+    pb.blackboxConstr = std::make_shared<BlackboxConstr>("bb_constr", &ctr, cfg.nx, cfg.nu, opt_LOAD);
     pb.bb_fun = pb.blackboxConstr->factory(
         "bb_fun",
         {"u"},
@@ -271,20 +271,20 @@ static MpcProblem buildMpcProblem(CtrModel& ctr, const MpcConfig& cfg) {
     );
 
     for (int k = 0; k < N; ++k) {
-        std::vector<casadi::MX> args = {U(casadi::Slice(), k)};
+        // std::vector<casadi::MX> args = {U(casadi::Slice(), k)};
         // extract the k‑th column as an MX vector
-        // casadi::MX u = U(casadi::Slice(), k);
+        casadi::MX u = U(casadi::Slice(), k);
 
         // casadi::MX args = u;
         // build argument vector
-        // casadi::MX args = casadi::MX::vertcat({
-        //     u(0) + u(1) + u(2),
-        //     u(1) + u(2),
-        //     u(2),
-        //     u(3),// - u(4),
-        //     u(4),// - u(5),
-        //     u(5)
-        // }); // shape (6,1)
+        casadi::MX args = casadi::MX::vertcat({
+            u(0) + u(1) + u(2),
+            u(1) + u(2),
+            u(2),
+            u(3),// - u(4),
+            u(4),// - u(5),
+            u(5)
+        }); // shape (6,1)
 
         g.push_back(X(casadi::Slice(), k + 1) - pb.bb_fun(args)[0]);
     }
@@ -368,6 +368,8 @@ int test_casadi_mpc() {
 
     Eigen::Vector3d P = ctr.GetP();
     Eigen::Vector3d Pdes = P + Eigen::Vector3d(20e-3,0,0);
+    // Eigen::Vector3d Pdes = P + Eigen::Vector3d(0,-20e-3,0);
+    // Eigen::Vector3d Pdes = P + Eigen::Vector3d(0,-40e-3,0);
 
     Eigen::Matrix<double, 1, 3> Pr = P.transpose(); // 1x3
     CtrLib::plotCtrWithTargetTrajectory(ctr.GetYTot(), ctr.segmented.iEnd, Pr, Pr);
